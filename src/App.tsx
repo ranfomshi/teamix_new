@@ -224,17 +224,36 @@ function isIOSBrowser() {
 function InstallBanner() {
   // Read the module-level prompt captured before React mounted.
   // Also subscribe to late-firing events (edge case: very slow SW activation).
-  const [hasPrompt, setHasPrompt] = useState(() => getInstallPrompt() !== null)
-  const [dismissed, setDismissed] = useState(() => localStorage.getItem('pwa-dismissed') === '1')
-  const [standalone] = useState(isRunningStandalone)
+  const [hasPrompt, setHasPrompt] = useState(() => {
+    const captured = getInstallPrompt() !== null
+    console.log('[PWA] InstallBanner mount — prompt already captured:', captured)
+    return captured
+  })
+  const [dismissed, setDismissed] = useState(() => {
+    const val = localStorage.getItem('pwa-dismissed')
+    console.log('[PWA] pwa-dismissed in localStorage:', val)
+    return val === '1'
+  })
+  const [standalone] = useState(() => {
+    const val = isRunningStandalone()
+    console.log('[PWA] running standalone:', val)
+    return val
+  })
   const ios = isIOSBrowser()
+  console.log('[PWA] iOS browser:', ios)
 
   useEffect(() => {
+    console.log('[PWA] useEffect — subscribing to late beforeinstallprompt, hasPrompt:', hasPrompt)
     if (hasPrompt) return
-    function handler() { setHasPrompt(true) }
+    function handler(e: Event) {
+      console.log('[PWA] beforeinstallprompt fired inside useEffect (late) ✓', e)
+      setHasPrompt(true)
+    }
     window.addEventListener('beforeinstallprompt', handler)
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [hasPrompt])
+
+  console.log('[PWA] render — standalone:', standalone, 'dismissed:', dismissed, 'hasPrompt:', hasPrompt, 'ios:', ios)
 
   if (standalone || dismissed) return null
 
