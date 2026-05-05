@@ -209,6 +209,51 @@ button {
     #07130f;
 }
 
+.install-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid rgb(40 209 124 / 20%);
+  background: rgb(40 209 124 / 10%);
+  padding: 10px 16px;
+  font-size: 0.83rem;
+  color: var(--ink);
+}
+
+.install-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.install-btn {
+  min-height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--grass);
+  color: #07130f;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 850;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.install-dismiss {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
 .top-bar {
   position: sticky;
   top: 0;

@@ -92,12 +92,6 @@ type HasVotedResponse = {
   votedPlayerId?: number | null
 }
 
-type RatingSummary = {
-  playerId: number
-  playerName: string
-  avgRating: number
-  ratings: Array<{ id: number; date: string; rating: string | number; raterId: number | null }>
-}
 
 const auth0Domain = import.meta.env.VITE_AUTH0_DOMAIN
 const auth0ClientId = import.meta.env.VITE_AUTH0_CLIENT_ID
@@ -190,6 +184,7 @@ function AuthenticatedShell() {
   return (
     <div className="app-shell">
       <TopBar room={apiState.activeRoom} userName={user?.name ?? 'Player'} />
+      <InstallBanner />
       <main className="app-content">
         <Routes>
           <Route path="/players" element={<PlayersView room={apiState.activeRoom} />} />
@@ -209,6 +204,49 @@ function AuthenticatedShell() {
         </Routes>
       </main>
       <BottomNav />
+    </div>
+  )
+}
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
+
+function InstallBanner() {
+  const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null)
+  const [dismissed, setDismissed] = useState(() => localStorage.getItem('pwa-dismissed') === '1')
+
+  useEffect(() => {
+    function handler(e: Event) {
+      e.preventDefault()
+      setInstallEvent(e as BeforeInstallPromptEvent)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  if (!installEvent || dismissed) return null
+
+  async function install() {
+    if (!installEvent) return
+    await installEvent.prompt()
+    const { outcome } = await installEvent.userChoice
+    if (outcome === 'accepted') setInstallEvent(null)
+  }
+
+  function dismiss() {
+    localStorage.setItem('pwa-dismissed', '1')
+    setDismissed(true)
+  }
+
+  return (
+    <div className="install-banner">
+      <span>Add Teamix to your home screen for the best experience.</span>
+      <div className="install-banner-actions">
+        <button type="button" className="install-btn" onClick={install}>Install</button>
+        <button type="button" className="install-dismiss" onClick={dismiss}><X size={14} /></button>
+      </div>
     </div>
   )
 }
@@ -2052,37 +2090,12 @@ function PlayerRow({
             <div><span>Goals/game</span><strong>{played > 0 ? (gf / played).toFixed(1) : '—'}</strong></div>
             <div><span>Rating</span><strong>{Math.round(Number(player.rating))}</strong></div>
           </div>
-          <PlayerRatingHistory playerId={player.id} />
         </div>
       ) : null}
     </article>
   )
 }
 
-function PlayerRatingHistory({ playerId }: { playerId: number }) {
-  const { getAccessTokenSilently } = useAuth0()
-  const { data, error } = useApi<RatingSummary[]>(`/api/ratings?playerId=${playerId}`, getAccessTokenSilently)
-  const ratings = data?.[0]?.ratings?.slice(0, 5) ?? []
-
-  return (
-    <div className="rating-history">
-      <strong>Rating history</strong>
-      {error ? <InlineError message={error} /> : null}
-      {ratings.length > 0 ? (
-        <div className="rating-history-list">
-          {ratings.map((rating) => (
-            <span key={rating.id}>
-              {new Date(rating.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
-              <strong>{Number(rating.rating).toFixed(1)}</strong>
-            </span>
-          ))}
-        </div>
-      ) : (
-        <p className="muted-note">No rating records yet.</p>
-      )}
-    </div>
-  )
-}
 
 function ResultBadge({ fixture }: { fixture: Gameweek }) {
   if (!fixture.gameResult) {
