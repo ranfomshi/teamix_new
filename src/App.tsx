@@ -213,9 +213,22 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
+function isRunningStandalone() {
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    ('standalone' in window.navigator && (window.navigator as Record<string, unknown>).standalone === true)
+  )
+}
+
+function isIOSBrowser() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent)
+}
+
 function InstallBanner() {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [dismissed, setDismissed] = useState(() => localStorage.getItem('pwa-dismissed') === '1')
+  const [standalone] = useState(isRunningStandalone)
+  const ios = isIOSBrowser()
 
   useEffect(() => {
     function handler(e: Event) {
@@ -226,7 +239,12 @@ function InstallBanner() {
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
-  if (!installEvent || dismissed) return null
+  if (standalone || dismissed) return null
+
+  function dismiss() {
+    localStorage.setItem('pwa-dismissed', '1')
+    setDismissed(true)
+  }
 
   async function install() {
     if (!installEvent) return
@@ -235,14 +253,20 @@ function InstallBanner() {
     if (outcome === 'accepted') setInstallEvent(null)
   }
 
-  function dismiss() {
-    localStorage.setItem('pwa-dismissed', '1')
-    setDismissed(true)
+  if (ios) {
+    return (
+      <div className="install-banner">
+        <span>Install: tap the <strong>Share</strong> button then <strong>Add to Home Screen</strong></span>
+        <button type="button" className="install-dismiss" onClick={dismiss}><X size={14} /></button>
+      </div>
+    )
   }
+
+  if (!installEvent) return null
 
   return (
     <div className="install-banner">
-      <span>Add Teamix to your home screen for the best experience.</span>
+      <span>Add Teamix to your home screen.</span>
       <div className="install-banner-actions">
         <button type="button" className="install-btn" onClick={install}>Install</button>
         <button type="button" className="install-dismiss" onClick={dismiss}><X size={14} /></button>
