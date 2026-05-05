@@ -306,7 +306,7 @@ button {
 
 .stat-card,
 .pitch-card,
-.player-row,
+.player-card,
 .fixture-row,
 .profile-panel,
 .settings-list,
@@ -316,6 +316,10 @@ button {
   border-radius: 8px;
   background: linear-gradient(180deg, rgb(255 255 255 / 9%), rgb(255 255 255 / 4%));
   box-shadow: 0 18px 44px rgb(0 0 0 / 16%);
+}
+
+.player-card {
+  overflow: hidden;
 }
 
 .stat-card {
@@ -377,7 +381,6 @@ button {
   gap: 10px;
 }
 
-.player-row,
 .fixture-row,
 .profile-panel,
 .room-card {
@@ -385,6 +388,27 @@ button {
   align-items: center;
   gap: 12px;
   padding: 12px;
+}
+
+.player-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 10px;
+}
+
+.player-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
 }
 
 .rank {
@@ -903,6 +927,115 @@ button {
   color: var(--ink);
   font: inherit;
   padding: 0 10px;
+}
+
+.player-card.expanded .expand-icon {
+  transform: rotate(180deg);
+}
+
+.player-detail {
+  border-top: 1px solid var(--line);
+  padding: 12px;
+}
+
+.player-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.player-stat-grid div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgb(255 255 255 / 5%);
+  padding: 8px 4px;
+  text-align: center;
+}
+
+.player-stat-grid span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.player-stat-grid strong {
+  margin-top: 3px;
+  font-size: 1.1rem;
+}
+
+.admin-panel {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgb(255 255 255 / 8%);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 850;
+  padding: 0 10px;
+}
+
+.admin-action-btn.active {
+  background: rgb(40 209 124 / 18%);
+  border-color: rgb(40 209 124 / 40%);
+  color: var(--grass);
+}
+
+.admin-action-btn.danger {
+  color: var(--danger);
+}
+
+.delete-confirm {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgb(255 111 97 / 30%);
+  border-radius: 8px;
+  background: rgb(255 111 97 / 8%);
+  padding: 12px;
+}
+
+.delete-confirm p {
+  margin: 0;
+  color: #ffd2cd;
+  font-weight: 600;
+}
+
+.join-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.join-divider::before,
+.join-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
 }
 
 .player-actions {

@@ -9,6 +9,7 @@ import {
   LogOut,
   Pencil,
   Plus,
+  Settings,
   Shield,
   Shirt,
   Trash2,
@@ -39,6 +40,11 @@ type Player = {
   rating: string
   profilePicture?: string | null
   isAdmin?: boolean
+  wins?: number
+  draws?: number
+  losses?: number
+  goalsFor?: number
+  goalsAgainst?: number
 }
 
 type Gameweek = {
@@ -330,25 +336,29 @@ function RoomGate({ memberships, onRoomChanged }: { memberships: Room[]; onRoomC
               <span>{joinResult.room.sportName ?? 'Team sport'} · {joinResult.room.code}</span>
               {joinResult.unlinkedPlayers && joinResult.unlinkedPlayers.length > 0 ? (
                 <>
-                  <p>Link to an existing player profile</p>
+                  <p>Is this you? Link to an existing player profile:</p>
                   {joinResult.unlinkedPlayers.map((player) => (
                     <button type="button" key={player.id} onClick={() => finalizeJoin(player.id)} disabled={busy}>
                       {player.name}
                     </button>
                   ))}
+                  <div className="join-divider"><span>or create a new profile</span></div>
                 </>
               ) : null}
               <label>
-                Or create your player profile
+                {joinResult.unlinkedPlayers && joinResult.unlinkedPlayers.length > 0 ? 'Your name' : 'Create your player profile'}
                 <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} placeholder="Your name" />
               </label>
-              <select value={skillLevel} onChange={(event) => setSkillLevel(event.target.value)}>
-                <option value="beginner">Beginner</option>
-                <option value="below_average">Below average</option>
-                <option value="average">Average</option>
-                <option value="better_than_average">Better than average</option>
-                <option value="experienced">Experienced</option>
-              </select>
+              <label>
+                Skill level
+                <select value={skillLevel} onChange={(event) => setSkillLevel(event.target.value)}>
+                  <option value="beginner">Beginner — below group average</option>
+                  <option value="below_average">Below average</option>
+                  <option value="average">Average — similar to group level</option>
+                  <option value="better_than_average">Better than average</option>
+                  <option value="experienced">Experienced — well above average</option>
+                </select>
+              </label>
               <button className="primary-action compact" type="button" onClick={() => finalizeJoin()} disabled={busy || !playerName}>
                 Join as new player
               </button>
@@ -667,7 +677,12 @@ function FixturesView({ room }: { room: Room }) {
 
       <div className="fixture-list">
         {recent.map((fixture) => (
-          <FixtureCard key={fixture.id} fixture={fixture} room={room} />
+          <FixtureCard
+            key={fixture.id}
+            fixture={fixture}
+            room={room}
+            onDeleted={() => setRefreshKey((key) => key + 1)}
+          />
         ))}
       </div>
     </section>
@@ -727,7 +742,17 @@ function NewFixtureForm({ onCreated }: { onCreated: () => void }) {
   )
 }
 
-function FixtureCard({ fixture, room }: { fixture: Gameweek; room: Room }) {
+type AdminAction = 'manual' | 'result' | 'delete' | null
+
+function FixtureCard({
+  fixture,
+  room,
+  onDeleted,
+}: {
+  fixture: Gameweek
+  room: Room
+  onDeleted: () => void
+}) {
   const { getAccessTokenSilently } = useAuth0()
   const [expanded, setExpanded] = useState(false)
   const [detail, setDetail] = useState<FixtureDetail>({})
@@ -735,6 +760,8 @@ function FixtureCard({ fixture, room }: { fixture: Gameweek; room: Room }) {
   const [gameResult, setGameResult] = useState(fixture.gameResult)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [adminAction, setAdminAction] = useState<AdminAction>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     setGameResult(fixture.gameResult)
@@ -761,10 +788,7 @@ function FixtureCard({ fixture, room }: { fixture: Gameweek; room: Room }) {
     }
 
     loadDetail()
-
-    return () => {
-      mounted = false
-    }
+    return () => { mounted = false }
   }, [detailKey, expanded, fixture.id, getAccessTokenSilently])
 
   async function assignPlayer(playerId: number, team: 'A' | 'B' | 'bench') {
@@ -781,6 +805,22 @@ function FixtureCard({ fixture, room }: { fixture: Gameweek; room: Room }) {
     }
   }
 
+  async function deleteFixture() {
+    setDeleting(true)
+    setError(null)
+    try {
+      await apiRequest(`/api/gameweeks/${fixture.id}`, getAccessTokenSilently, { method: 'DELETE' })
+      onDeleted()
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Could not delete fixture')
+      setDeleting(false)
+    }
+  }
+
+  function toggleAdmin(action: AdminAction) {
+    setAdminAction((current) => current === action ? null : action)
+  }
+
   const available = detail.availability?.filter((row) => row.status === true) ?? []
   const unavailable = detail.availability?.filter((row) => row.status === false) ?? []
   const waiting = detail.availability?.filter((row) => row.status === null) ?? []
@@ -794,7 +834,7 @@ function FixtureCard({ fixture, room }: { fixture: Gameweek; room: Room }) {
         </div>
         <div>
           <h3>{fixture.location ?? 'Fixture'}</h3>
-          <p>{fixture.startTime ?? 'Time TBC'} - max {fixture.maxPlayers ?? 'open'}</p>
+          <p>{fixture.startTime ?? 'Time TBC'} · max {fixture.maxPlayers ?? 'open'}</p>
         </div>
         <ResultBadge fixture={{ ...fixture, gameResult }} />
         <ChevronDown className="expand-icon" size={18} />
@@ -802,8 +842,9 @@ function FixtureCard({ fixture, room }: { fixture: Gameweek; room: Room }) {
 
       {expanded ? (
         <div className="fixture-detail">
-          {loading ? <p>Loading fixture detail...</p> : null}
+          {loading ? <p>Loading...</p> : null}
           {error ? <InlineError message={error} /> : null}
+
           {detail.availability ? (
             <div className="detail-stats">
               <StatCard label="Available" value={available.length} />
@@ -811,6 +852,7 @@ function FixtureCard({ fixture, room }: { fixture: Gameweek; room: Room }) {
               <StatCard label="Waiting" value={waiting.length} />
             </div>
           ) : null}
+
           {detail.assignments && detail.assignments.length > 0 ? (
             <div className="team-columns">
               <TeamList title="Team A" color={room.teamAColor ?? '#28d17c'} players={detail.assignments.filter((item) => item.team === 'A').map((item) => item.Player)} />
@@ -819,26 +861,72 @@ function FixtureCard({ fixture, room }: { fixture: Gameweek; room: Room }) {
           ) : (
             detail.availability ? <p className="muted-note">Teams have not been picked for this fixture yet.</p> : null
           )}
-          {room.isAdmin && detail.availability ? (
-            <ManualAssignmentPanel
-              availability={detail.availability}
-              assignments={detail.assignments ?? []}
-              onAssign={assignPlayer}
-            />
-          ) : null}
-          {room.isAdmin ? (
-            <ResultForm
-              fixture={{ ...fixture, gameResult }}
-              onSaved={(savedResult) => {
-                setGameResult(savedResult)
-                setDetailKey((key) => key + 1)
-              }}
-            />
-          ) : null}
+
           {available.length > 0 ? (
             <div className="mini-player-list">
               <strong>Available players</strong>
               {available.slice(0, 8).map((row) => <span key={row.playerId}>{row.Player.name}</span>)}
+            </div>
+          ) : null}
+
+          {room.isAdmin ? (
+            <div className="admin-panel">
+              <div className="admin-actions">
+                <button
+                  type="button"
+                  className={`admin-action-btn${adminAction === 'manual' ? ' active' : ''}`}
+                  onClick={() => toggleAdmin('manual')}
+                >
+                  <Settings size={14} /> Manual teams
+                </button>
+                <button
+                  type="button"
+                  className={`admin-action-btn${adminAction === 'result' ? ' active' : ''}`}
+                  onClick={() => toggleAdmin('result')}
+                >
+                  <Pencil size={14} /> {gameResult ? 'Edit result' : 'Record result'}
+                </button>
+                <button
+                  type="button"
+                  className="admin-action-btn danger"
+                  onClick={() => toggleAdmin('delete')}
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              </div>
+
+              {adminAction === 'manual' && detail.availability ? (
+                <ManualAssignmentPanel
+                  availability={detail.availability}
+                  assignments={detail.assignments ?? []}
+                  onAssign={assignPlayer}
+                />
+              ) : null}
+
+              {adminAction === 'result' ? (
+                <ResultForm
+                  fixture={{ ...fixture, gameResult }}
+                  onSaved={(savedResult) => {
+                    setGameResult(savedResult)
+                    setDetailKey((key) => key + 1)
+                    setAdminAction(null)
+                  }}
+                />
+              ) : null}
+
+              {adminAction === 'delete' ? (
+                <div className="delete-confirm">
+                  <p>Delete this fixture permanently?</p>
+                  <div className="form-row">
+                    <button className="danger-button" type="button" onClick={deleteFixture} disabled={deleting}>
+                      Yes, delete
+                    </button>
+                    <button className="secondary-action" type="button" onClick={() => setAdminAction(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -1089,24 +1177,53 @@ function PlayerRow({
   onEdit?: () => void
   onDelete?: () => void
 }) {
+  const [expanded, setExpanded] = useState(false)
+  const wins = player.wins ?? 0
+  const draws = player.draws ?? 0
+  const losses = player.losses ?? 0
+  const gf = player.goalsFor ?? 0
+  const ga = player.goalsAgainst ?? 0
+  const played = wins + draws + losses
+
   return (
-    <article className="player-row">
-      <div className="rank">{rank}</div>
-      <div className="avatar" style={{ borderColor: rank % 2 ? room.teamAColor : room.teamBColor }}>
-        {player.profilePicture ? <img src={player.profilePicture} alt="" /> : initials(player.name)}
+    <article className={`player-card${expanded ? ' expanded' : ''}`}>
+      <div className="player-row">
+        <button className="player-toggle" type="button" onClick={() => setExpanded((e) => !e)}>
+          <div className="rank">{rank}</div>
+          <div className="avatar" style={{ borderColor: rank % 2 ? room.teamAColor : room.teamBColor }}>
+            {player.profilePicture ? <img src={player.profilePicture} alt="" /> : initials(player.name)}
+          </div>
+          <div className="player-main">
+            <strong>{player.name}</strong>
+            {played > 0
+              ? <span>{wins}W · {draws}D · {losses}L</span>
+              : <span>{player.isAdmin ? 'Room admin' : 'No games yet'}</span>}
+          </div>
+          <div className="rating-pill">
+            <Activity size={14} />
+            {Math.round(Number(player.rating))}
+          </div>
+          <ChevronDown className="expand-icon" size={16} />
+        </button>
+        {(onEdit || onDelete) ? (
+          <div className="player-actions">
+            {onEdit ? <button type="button" className="icon-btn" onClick={onEdit}><Pencil size={14} /></button> : null}
+            {onDelete ? <button type="button" className="icon-btn danger" onClick={onDelete}><Trash2 size={14} /></button> : null}
+          </div>
+        ) : null}
       </div>
-      <div className="player-main">
-        <strong>{player.name}</strong>
-        <span>{player.isAdmin ? 'Room admin' : 'Squad player'}</span>
-      </div>
-      <div className="rating-pill">
-        <Activity size={14} />
-        {Math.round(Number(player.rating))}
-      </div>
-      {(onEdit || onDelete) ? (
-        <div className="player-actions">
-          {onEdit ? <button type="button" className="icon-btn" onClick={onEdit}><Pencil size={14} /></button> : null}
-          {onDelete ? <button type="button" className="icon-btn danger" onClick={onDelete}><Trash2 size={14} /></button> : null}
+      {expanded ? (
+        <div className="player-detail">
+          <div className="player-stat-grid">
+            <div><span>Played</span><strong>{played}</strong></div>
+            <div><span>Wins</span><strong>{wins}</strong></div>
+            <div><span>Draws</span><strong>{draws}</strong></div>
+            <div><span>Losses</span><strong>{losses}</strong></div>
+            <div><span>Goals for</span><strong>{gf}</strong></div>
+            <div><span>Goals against</span><strong>{ga}</strong></div>
+            <div><span>Goal diff</span><strong>{gf - ga > 0 ? `+${gf - ga}` : gf - ga}</strong></div>
+            <div><span>Rating</span><strong>{Math.round(Number(player.rating))}</strong></div>
+          </div>
         </div>
       ) : null}
     </article>
@@ -1239,6 +1356,17 @@ function useApi<T>(
   return { data, error }
 }
 
+async function extractErrorMessage(response: Response): Promise<string> {
+  const text = await response.text()
+  try {
+    const parsed = JSON.parse(text) as Record<string, unknown>
+    const msg = parsed.message ?? parsed.error
+    return typeof msg === 'string' ? msg : text
+  } catch {
+    return text
+  }
+}
+
 async function apiFetch<T>(path: string, getAccessTokenSilently: () => Promise<string>) {
   const token = await getAccessTokenSilently()
   const response = await fetch(path, {
@@ -1248,7 +1376,7 @@ async function apiFetch<T>(path: string, getAccessTokenSilently: () => Promise<s
   })
 
   if (!response.ok) {
-    throw new Error(await response.text())
+    throw new Error(await extractErrorMessage(response))
   }
 
   return response.json() as Promise<T>
@@ -1278,7 +1406,7 @@ async function apiRequest<T = unknown>(
   })
 
   if (!response.ok) {
-    throw new Error(await response.text())
+    throw new Error(await extractErrorMessage(response))
   }
 
   if (response.status === 204) return undefined as T

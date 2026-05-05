@@ -341,30 +341,65 @@ export const handler: Handler = async (event) => {
 
     if (method === 'GET' && route === '/players') {
       const players = await db.sql`
-        SELECT p.id, p.name, p.rating, p."auth0Id", p."profilePicture",
-               rm."isAdmin", rm."favoritePositions", rm."isMember"
+        SELECT
+          p.id, p.name, p.rating, p."profilePicture", rm."isAdmin",
+          COALESCE(s.wins, 0)::int   AS wins,
+          COALESCE(s.draws, 0)::int  AS draws,
+          COALESCE(s.losses, 0)::int AS losses,
+          COALESCE(s."goalsFor", 0)::int     AS "goalsFor",
+          COALESCE(s."goalsAgainst", 0)::int AS "goalsAgainst"
         FROM public."RoomMemberships" rm
         JOIN public."Players" p ON p.id = rm."playerId"
+        LEFT JOIN (
+          SELECT
+            ta."playerId",
+            COUNT(*) FILTER (
+              WHERE (ta.team = 'A' AND gr."teamA_score" > gr."teamB_score")
+                 OR (ta.team = 'B' AND gr."teamB_score" > gr."teamA_score")
+            ) AS wins,
+            COUNT(*) FILTER (
+              WHERE gr."teamA_score" = gr."teamB_score"
+            ) AS draws,
+            COUNT(*) FILTER (
+              WHERE (ta.team = 'A' AND gr."teamA_score" < gr."teamB_score")
+                 OR (ta.team = 'B' AND gr."teamB_score" < gr."teamA_score")
+            ) AS losses,
+            SUM(CASE WHEN ta.team = 'A' THEN gr."teamA_score"
+                     WHEN ta.team = 'B' THEN gr."teamB_score" ELSE 0 END) AS "goalsFor",
+            SUM(CASE WHEN ta.team = 'A' THEN gr."teamB_score"
+                     WHEN ta.team = 'B' THEN gr."teamA_score" ELSE 0 END) AS "goalsAgainst"
+          FROM public."TeamAssignments" ta
+          JOIN public."GameResults" gr
+            ON gr."gameweekId" = ta."gameweekId" AND gr."roomId" = ta."roomId"
+          WHERE ta."roomId" = ${active.roomId}
+            AND ta.team IN ('A', 'B')
+          GROUP BY ta."playerId"
+        ) s ON s."playerId" = p.id
         WHERE rm."roomId" = ${active.roomId}
           AND rm."isMember" = true
-        ORDER BY p.rating DESC NULLS LAST, p.name ASC
+        ORDER BY COALESCE(s.wins, 0) DESC, p.rating DESC NULLS LAST, p.name ASC
       `
       return json(players)
     }
 
     if (method === 'POST' && route === '/players') {
-      const body = parseBody<{ name?: string; rating?: number }>(event)
+      const body = parseBody<{ name?: string; skillLevel?: string }>(event)
       if (!body.name?.trim()) return json({ error: 'name is required' }, 400)
 
+      const rating = initialRating(body.skillLevel)
       const [player] = await db.sql`
         INSERT INTO public."Players" (name, rating, "createdAt", "updatedAt")
-        VALUES (${body.name.trim()}, ${body.rating ?? 1000}, NOW(), NOW())
+        VALUES (${body.name.trim()}, ${rating}, NOW(), NOW())
         RETURNING id, name, rating, "profilePicture"
       `
 
       await db.sql`
         INSERT INTO public."RoomMemberships" ("playerId", "roomId", "isActive", "isAdmin", "isMember", "createdAt", "updatedAt")
         VALUES (${player.id}, ${active.roomId}, false, false, true, NOW(), NOW())
+      `
+      await db.sql`
+        INSERT INTO public."Ratings" ("playerId", date, rating, "raterId", "roomId", "createdAt", "updatedAt")
+        VALUES (${player.id}, CURRENT_DATE, ${rating}, NULL, ${active.roomId}, NOW(), NOW())
       `
 
       return json(player, 201)
