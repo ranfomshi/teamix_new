@@ -243,6 +243,34 @@ type JoinRoomResponse = {
   unlinkedPlayers?: Player[]
 }
 
+const SKILL_OPTIONS = [
+  { value: 'beginner', label: 'Beginner - below group average' },
+  { value: 'below_average', label: 'Below average' },
+  { value: 'average', label: 'Average - similar to group level' },
+  { value: 'better_than_average', label: 'Better than average' },
+  { value: 'experienced', label: 'Experienced - well above group average' },
+]
+
+function SkillLevelField({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <label>
+      Your starting skill level
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        {SKILL_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+      <span className="field-help">Used only to seed your starting rating for fair team selection.</span>
+    </label>
+  )
+}
+
 function RoomGate({ memberships, onRoomChanged }: { memberships: Room[]; onRoomChanged: () => void }) {
   const { getAccessTokenSilently, logout, user } = useAuth0()
   const { data: sports } = useApi<Sport[]>('/api/sports', getAccessTokenSilently, false)
@@ -376,16 +404,7 @@ function RoomGate({ memberships, onRoomChanged }: { memberships: Room[]; onRoomC
                 {joinResult.unlinkedPlayers && joinResult.unlinkedPlayers.length > 0 ? 'Your name' : 'Create your player profile'}
                 <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} placeholder="Your name" />
               </label>
-              <label>
-                Skill level
-                <select value={skillLevel} onChange={(event) => setSkillLevel(event.target.value)}>
-                  <option value="beginner">Beginner — below group average</option>
-                  <option value="below_average">Below average</option>
-                  <option value="average">Average — similar to group level</option>
-                  <option value="better_than_average">Better than average</option>
-                  <option value="experienced">Experienced — well above average</option>
-                </select>
-              </label>
+              <SkillLevelField value={skillLevel} onChange={setSkillLevel} />
               <button className="primary-action compact" type="button" onClick={() => finalizeJoin()} disabled={busy || !playerName}>
                 Join as new player
               </button>
@@ -411,13 +430,7 @@ function RoomGate({ memberships, onRoomChanged }: { memberships: Room[]; onRoomC
               ))}
             </select>
           </label>
-          <select value={skillLevel} onChange={(event) => setSkillLevel(event.target.value)}>
-            <option value="beginner">Beginner</option>
-            <option value="below_average">Below average</option>
-            <option value="average">Average</option>
-            <option value="better_than_average">Better than average</option>
-            <option value="experienced">Experienced</option>
-          </select>
+          <SkillLevelField value={skillLevel} onChange={setSkillLevel} />
           <button className="primary-action compact" type="button" onClick={createRoom} disabled={busy || !roomName || !playerName || !sportId}>
             Create squad
           </button>
@@ -445,10 +458,11 @@ function TopBar({ room, userName }: { room: Room; userName: string }) {
   )
 }
 
-type SortKey = 'wins' | 'draws' | 'losses' | 'played' | 'goalsFor' | 'goalsAgainst' | 'goalDiff' | 'rating' | 'name'
+type SortKey = 'wins' | 'winPct' | 'draws' | 'losses' | 'played' | 'goalsFor' | 'goalsAgainst' | 'goalDiff' | 'rating' | 'name'
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'wins', label: 'Wins' },
+  { value: 'winPct', label: 'Win %' },
   { value: 'draws', label: 'Draws' },
   { value: 'losses', label: 'Losses' },
   { value: 'played', label: 'Games played' },
@@ -466,6 +480,7 @@ function sortPlayers(players: Player[], by: SortKey, dir: 'asc' | 'desc'): Playe
     let diff = 0
     switch (by) {
       case 'wins':         diff = (a.wins ?? 0) - (b.wins ?? 0); break
+      case 'winPct':       diff = ((a.wins ?? 0) / Math.max(played(a), 1)) - ((b.wins ?? 0) / Math.max(played(b), 1)); break
       case 'draws':        diff = (a.draws ?? 0) - (b.draws ?? 0); break
       case 'losses':       diff = (a.losses ?? 0) - (b.losses ?? 0); break
       case 'played':       diff = played(a) - played(b); break
@@ -645,16 +660,7 @@ function AddPlayerForm({ onCreated }: { onCreated: () => void }) {
           autoFocus
         />
       </label>
-      <label>
-        Skill level
-        <select value={skillLevel} onChange={(e) => setSkillLevel(e.target.value)}>
-          <option value="beginner">Beginner — below group average</option>
-          <option value="below_average">Below average</option>
-          <option value="average">Average — similar to group level</option>
-          <option value="better_than_average">Better than average</option>
-          <option value="experienced">Experienced — well above group average</option>
-        </select>
-      </label>
+      <SkillLevelField value={skillLevel} onChange={setSkillLevel} />
       <button className="primary-action compact" type="button" onClick={submit} disabled={busy || !name.trim()}>
         Add player
       </button>
@@ -1520,13 +1526,7 @@ function RoomAccessPanel({
                 {joinResult.unlinkedPlayers && joinResult.unlinkedPlayers.length > 0 ? 'Your name' : 'Create your player profile'}
                 <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} placeholder="Your name" />
               </label>
-              <select value={skillLevel} onChange={(event) => setSkillLevel(event.target.value)}>
-                <option value="beginner">Beginner</option>
-                <option value="below_average">Below average</option>
-                <option value="average">Average</option>
-                <option value="better_than_average">Better than average</option>
-                <option value="experienced">Experienced</option>
-              </select>
+              <SkillLevelField value={skillLevel} onChange={setSkillLevel} />
               <button className="primary-action compact" type="button" onClick={() => finalizeJoin()} disabled={busy || !playerName}>
                 Join as new player
               </button>
@@ -1552,13 +1552,7 @@ function RoomAccessPanel({
               ))}
             </select>
           </label>
-          <select value={skillLevel} onChange={(event) => setSkillLevel(event.target.value)}>
-            <option value="beginner">Beginner</option>
-            <option value="below_average">Below average</option>
-            <option value="average">Average</option>
-            <option value="better_than_average">Better than average</option>
-            <option value="experienced">Experienced</option>
-          </select>
+          <SkillLevelField value={skillLevel} onChange={setSkillLevel} />
           <div className="color-grid">
             <label>
               Team A
