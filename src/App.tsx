@@ -1,6 +1,6 @@
 import { Auth0Provider, useAuth0 } from '@auth0/auth0-react'
 import {
-  Activity,
+  // Activity,
   ArrowDownUp,
   CalendarDays,
   ChevronRight,
