@@ -11,7 +11,9 @@ type AuthContext = {
   isAdmin?: boolean
 }
 
-const db = getDatabase()
+const db = getDatabase({
+  connectionString: process.env.TEAMIX_DATABASE_URL ?? process.env.NETLIFY_DB_URL,
+})
 const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>()
 
 export const handler: Handler = async (event) => {
