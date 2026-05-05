@@ -7,11 +7,14 @@ import {
   CircleUserRound,
   ClipboardList,
   LogOut,
+  Pencil,
   Plus,
   Shield,
   Shirt,
+  Trash2,
   Trophy,
   UsersRound,
+  X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
@@ -407,35 +410,210 @@ function TopBar({ room, userName }: { room: Room; userName: string }) {
 
 function PlayersView({ room }: { room: Room }) {
   const { getAccessTokenSilently } = useAuth0()
-  const { data: players, error } = useApi<Player[]>('/api/players', getAccessTokenSilently)
+  const [players, setPlayers] = useState<Player[] | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
+  const [deletingPlayer, setDeletingPlayer] = useState<Player | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    setFetchError(null)
+    async function load() {
+      try {
+        const data = await apiFetch<Player[]>('/api/players', getAccessTokenSilently)
+        if (mounted) setPlayers(data)
+      } catch (err) {
+        if (mounted) setFetchError(err instanceof Error ? err.message : 'Could not load players')
+      }
+    }
+    load()
+    return () => { mounted = false }
+  }, [getAccessTokenSilently, refreshKey])
+
   const squadPlayers = players ?? []
   const averageRating = players?.length
     ? Math.round(players.reduce((total, player) => total + Number(player.rating), 0) / players.length)
     : 0
+
+  function refresh() { setRefreshKey((key) => key + 1) }
 
   return (
     <section className="screen">
       <ScreenHeader
         eyebrow="Squad"
         title="Player form"
-        actionLabel="Add"
-        icon={<Plus size={17} />}
+        actionLabel={showAddForm ? 'Cancel' : 'Add'}
+        icon={showAddForm ? <X size={17} /> : <Plus size={17} />}
+        onAction={() => { setShowAddForm((show) => !show); setEditingPlayer(null); setDeletingPlayer(null) }}
       />
+
+      {showAddForm ? (
+        <AddPlayerForm onCreated={() => { setShowAddForm(false); refresh() }} />
+      ) : null}
+
+      {editingPlayer ? (
+        <EditPlayerForm
+          player={editingPlayer}
+          onSaved={() => { setEditingPlayer(null); refresh() }}
+          onCancel={() => setEditingPlayer(null)}
+        />
+      ) : null}
+
+      {deletingPlayer ? (
+        <DeletePlayerConfirm
+          player={deletingPlayer}
+          onDeleted={() => { setDeletingPlayer(null); refresh() }}
+          onCancel={() => setDeletingPlayer(null)}
+        />
+      ) : null}
 
       <div className="stat-grid">
         <StatCard label="Squad size" value={players?.length ?? '--'} />
         <StatCard label="Avg rating" value={averageRating || '--'} />
       </div>
 
-      {error ? <InlineError message={error} /> : null}
-      {!players && !error ? <SkeletonList /> : null}
+      {fetchError ? <InlineError message={fetchError} /> : null}
+      {!players && !fetchError ? <SkeletonList /> : null}
 
       <div className="list-stack">
         {squadPlayers.map((player, index) => (
-          <PlayerRow key={player.id} player={player} rank={index + 1} room={room} />
+          <PlayerRow
+            key={player.id}
+            player={player}
+            rank={index + 1}
+            room={room}
+            onEdit={room.isAdmin ? () => { setEditingPlayer(player); setDeletingPlayer(null); setShowAddForm(false) } : undefined}
+            onDelete={room.isAdmin ? () => { setDeletingPlayer(player); setEditingPlayer(null); setShowAddForm(false) } : undefined}
+          />
         ))}
       </div>
     </section>
+  )
+}
+
+function AddPlayerForm({ onCreated }: { onCreated: () => void }) {
+  const { getAccessTokenSilently } = useAuth0()
+  const [name, setName] = useState('')
+  const [skillLevel, setSkillLevel] = useState('average')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit() {
+    if (!name.trim()) return
+    setBusy(true)
+    setError(null)
+    try {
+      await apiSend('/api/players', getAccessTokenSilently, { name: name.trim(), skillLevel })
+      onCreated()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not add player')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="form-panel wide">
+      <h2>Add player</h2>
+      {error ? <InlineError message={error} /> : null}
+      <label>
+        Name
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          placeholder="Player name"
+          autoFocus
+        />
+      </label>
+      <label>
+        Skill level
+        <select value={skillLevel} onChange={(e) => setSkillLevel(e.target.value)}>
+          <option value="beginner">Beginner — below group average</option>
+          <option value="below_average">Below average</option>
+          <option value="average">Average — similar to group level</option>
+          <option value="better_than_average">Better than average</option>
+          <option value="experienced">Experienced — well above group average</option>
+        </select>
+      </label>
+      <button className="primary-action compact" type="button" onClick={submit} disabled={busy || !name.trim()}>
+        Add player
+      </button>
+    </div>
+  )
+}
+
+function EditPlayerForm({ player, onSaved, onCancel }: { player: Player; onSaved: () => void; onCancel: () => void }) {
+  const { getAccessTokenSilently } = useAuth0()
+  const [name, setName] = useState(player.name)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit() {
+    if (!name.trim()) return
+    setBusy(true)
+    setError(null)
+    try {
+      await apiRequest(`/api/players/${player.id}`, getAccessTokenSilently, { method: 'PUT', body: { name: name.trim() } })
+      onSaved()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update player')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="form-panel wide">
+      <h2>Edit player</h2>
+      {error ? <InlineError message={error} /> : null}
+      <label>
+        Name
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          autoFocus
+        />
+      </label>
+      <div className="form-row">
+        <button className="primary-action compact" type="button" onClick={submit} disabled={busy || !name.trim()}>Save</button>
+        <button className="secondary-action" type="button" onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+
+function DeletePlayerConfirm({ player, onDeleted, onCancel }: { player: Player; onDeleted: () => void; onCancel: () => void }) {
+  const { getAccessTokenSilently } = useAuth0()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function confirm() {
+    setBusy(true)
+    setError(null)
+    try {
+      await apiRequest(`/api/players/${player.id}`, getAccessTokenSilently, { method: 'DELETE' })
+      onDeleted()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not delete player')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="form-panel wide">
+      <h2>Remove {player.name}?</h2>
+      <p className="muted-note">This cannot be undone and will remove all their stats.</p>
+      {error ? <InlineError message={error} /> : null}
+      <div className="form-row">
+        <button className="danger-button" type="button" onClick={confirm} disabled={busy}>Delete</button>
+        <button className="secondary-action" type="button" onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
   )
 }
 
@@ -898,7 +1076,19 @@ function ScreenHeader({
   )
 }
 
-function PlayerRow({ player, rank, room }: { player: Player; rank: number; room: Room }) {
+function PlayerRow({
+  player,
+  rank,
+  room,
+  onEdit,
+  onDelete,
+}: {
+  player: Player
+  rank: number
+  room: Room
+  onEdit?: () => void
+  onDelete?: () => void
+}) {
   return (
     <article className="player-row">
       <div className="rank">{rank}</div>
@@ -913,6 +1103,12 @@ function PlayerRow({ player, rank, room }: { player: Player; rank: number; room:
         <Activity size={14} />
         {Math.round(Number(player.rating))}
       </div>
+      {(onEdit || onDelete) ? (
+        <div className="player-actions">
+          {onEdit ? <button type="button" className="icon-btn" onClick={onEdit}><Pencil size={14} /></button> : null}
+          {onDelete ? <button type="button" className="icon-btn danger" onClick={onDelete}><Trash2 size={14} /></button> : null}
+        </div>
+      ) : null}
     </article>
   )
 }

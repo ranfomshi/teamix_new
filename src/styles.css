@@ -905,6 +905,57 @@ button {
   padding: 0 10px;
 }
 
+.player-actions {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.icon-btn {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgb(255 255 255 / 8%);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.icon-btn.danger {
+  color: var(--danger);
+}
+
+.icon-btn:hover {
+  background: rgb(255 255 255 / 14%);
+}
+
+.danger-button {
+  flex: 1;
+  min-height: 44px;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: var(--danger);
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 850;
+}
+
+.danger-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 @media (min-width: 760px) {
   .bottom-nav {
     right: calc(50% - 360px);
