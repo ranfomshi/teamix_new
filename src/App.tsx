@@ -162,6 +162,20 @@ function AuthenticatedShell() {
     }
   }, [getAccessTokenSilently, reloadKey])
 
+  // Fire-and-forget: keep the cached avatar URL in sync on every login.
+  useEffect(() => {
+    if (!user?.picture) return
+    getAccessTokenSilently()
+      .then((token) =>
+        fetch('/api/sync-avatar', {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ picture: user.picture }),
+        })
+      )
+      .catch(() => { /* non-critical */ })
+  }, [getAccessTokenSilently, user?.picture])
+
   if (loadError) {
     return (
       <ErrorState

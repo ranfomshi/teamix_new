@@ -260,6 +260,13 @@ export const handler: Handler = async (event) => {
           RETURNING "roomId", "playerId", "isActive", "isAdmin", "isMember"
         `
         if (!linked) return json({ error: 'That player profile is no longer available to link' }, 409)
+        if (body.profilePicture) {
+          await db.sql`
+            UPDATE public."Players"
+            SET "profilePicture" = ${body.profilePicture}, "updatedAt" = NOW()
+            WHERE id = ${playerId}
+          `
+        }
       } else {
         if (!body.newPlayerName?.trim()) {
           return json({ error: 'Choose an existing player or enter a player name' }, 400)
@@ -975,6 +982,20 @@ export const handler: Handler = async (event) => {
         ORDER BY a.id
       `
       return json(achievements)
+    }
+
+    if (method === 'PATCH' && route === '/sync-avatar') {
+      const body = parseBody<{ picture?: string | null }>(event)
+      if (body.picture) {
+        await db.sql`
+          UPDATE public."Players" p
+          SET "profilePicture" = ${body.picture}, "updatedAt" = NOW()
+          FROM public."RoomMemberships" rm
+          WHERE rm."playerId" = p.id
+            AND rm."auth0Id" = ${auth.sub}
+        `
+      }
+      return json({ ok: true })
     }
 
     const legacyNotYetPorted = [
