@@ -506,16 +506,16 @@ function sortPlayers(players: Player[], by: SortKey, dir: 'asc' | 'desc'): Playe
     const played = (p: Player) => (p.wins ?? 0) + (p.draws ?? 0) + (p.losses ?? 0)
     let diff = 0
     switch (by) {
-      case 'wins':         diff = (a.wins ?? 0) - (b.wins ?? 0); break
-      case 'winPct':       diff = ((a.wins ?? 0) / Math.max(played(a), 1)) - ((b.wins ?? 0) / Math.max(played(b), 1)); break
-      case 'draws':        diff = (a.draws ?? 0) - (b.draws ?? 0); break
-      case 'losses':       diff = (a.losses ?? 0) - (b.losses ?? 0); break
-      case 'played':       diff = played(a) - played(b); break
-      case 'goalsFor':     diff = (a.goalsFor ?? 0) - (b.goalsFor ?? 0); break
+      case 'wins': diff = (a.wins ?? 0) - (b.wins ?? 0); break
+      case 'winPct': diff = ((a.wins ?? 0) / Math.max(played(a), 1)) - ((b.wins ?? 0) / Math.max(played(b), 1)); break
+      case 'draws': diff = (a.draws ?? 0) - (b.draws ?? 0); break
+      case 'losses': diff = (a.losses ?? 0) - (b.losses ?? 0); break
+      case 'played': diff = played(a) - played(b); break
+      case 'goalsFor': diff = (a.goalsFor ?? 0) - (b.goalsFor ?? 0); break
       case 'goalsAgainst': diff = (a.goalsAgainst ?? 0) - (b.goalsAgainst ?? 0); break
-      case 'goalDiff':     diff = gd(a) - gd(b); break
-      case 'rating':       diff = Number(a.rating) - Number(b.rating); break
-      case 'name':         diff = a.name.localeCompare(b.name); break
+      case 'goalDiff': diff = gd(a) - gd(b); break
+      case 'rating': diff = Number(a.rating) - Number(b.rating); break
+      case 'name': diff = a.name.localeCompare(b.name); break
     }
     return dir === 'asc' ? diff : -diff
   })
@@ -2025,10 +2025,10 @@ function PlayerRow({
               ? <span>{wins}W · {draws}D · {losses}L</span>
               : <span>{player.isAdmin ? 'Room admin' : 'No games yet'}</span>}
           </div>
-          <div className="rating-pill">
+          {/* <div className="rating-pill">
             <Activity size={14} />
             {Math.round(Number(player.rating))}
-          </div>
+          </div> */}
           <ChevronDown className="expand-icon" size={16} />
         </button>
         {(onEdit || onDelete) ? (
