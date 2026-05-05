@@ -128,7 +128,14 @@ function AuthenticatedShell() {
   }, [getAccessTokenSilently])
 
   if (loadError) {
-    return <ErrorState title="Could not load your squad" detail={loadError} />
+    return (
+      <ErrorState
+        title="Could not load your squad"
+        detail={loadError}
+        actionLabel="Sign out"
+        onAction={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+      />
+    )
   }
 
   if (!apiState) {
@@ -474,12 +481,28 @@ function SetupMissing() {
   )
 }
 
-function ErrorState({ title, detail }: { title: string; detail: string }) {
+function ErrorState({
+  title,
+  detail,
+  actionLabel,
+  onAction,
+}: {
+  title: string
+  detail: string
+  actionLabel?: string
+  onAction?: () => void
+}) {
   return (
     <main className="error-state">
       <ClipboardList size={34} />
       <h1>{title}</h1>
       <p>{detail}</p>
+      {actionLabel && onAction ? (
+        <button className="secondary-action" type="button" onClick={onAction}>
+          <LogOut size={18} />
+          {actionLabel}
+        </button>
+      ) : null}
     </main>
   )
 }
