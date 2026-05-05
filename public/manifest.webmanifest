@@ -2,8 +2,26 @@
   "name": "Teamix",
   "short_name": "Teamix",
   "description": "Pick teams, manage fixtures, and track your squad.",
+  "id": "/",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Teamix player list"
+    },
+    {
+      "src": "/screenshot-wide.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Teamix player list on desktop"
+    }
+  ],
   "background_color": "#07130f",
   "theme_color": "#10251d",
   "orientation": "portrait",
