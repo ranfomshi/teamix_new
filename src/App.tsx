@@ -208,10 +208,7 @@ function AuthenticatedShell() {
   )
 }
 
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-}
+import { getInstallPrompt, clearInstallPrompt } from './main'
 
 function isRunningStandalone() {
   return (
@@ -225,19 +222,19 @@ function isIOSBrowser() {
 }
 
 function InstallBanner() {
-  const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null)
+  // Read the module-level prompt captured before React mounted.
+  // Also subscribe to late-firing events (edge case: very slow SW activation).
+  const [hasPrompt, setHasPrompt] = useState(() => getInstallPrompt() !== null)
   const [dismissed, setDismissed] = useState(() => localStorage.getItem('pwa-dismissed') === '1')
   const [standalone] = useState(isRunningStandalone)
   const ios = isIOSBrowser()
 
   useEffect(() => {
-    function handler(e: Event) {
-      e.preventDefault()
-      setInstallEvent(e as BeforeInstallPromptEvent)
-    }
+    if (hasPrompt) return
+    function handler() { setHasPrompt(true) }
     window.addEventListener('beforeinstallprompt', handler)
     return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
+  }, [hasPrompt])
 
   if (standalone || dismissed) return null
 
@@ -247,10 +244,11 @@ function InstallBanner() {
   }
 
   async function install() {
-    if (!installEvent) return
-    await installEvent.prompt()
-    const { outcome } = await installEvent.userChoice
-    if (outcome === 'accepted') setInstallEvent(null)
+    const event = getInstallPrompt()
+    if (!event) return
+    await event.prompt()
+    const { outcome } = await event.userChoice
+    if (outcome === 'accepted') { clearInstallPrompt(); setHasPrompt(false) }
   }
 
   if (ios) {
@@ -262,7 +260,7 @@ function InstallBanner() {
     )
   }
 
-  if (!installEvent) return null
+  if (!hasPrompt) return null
 
   return (
     <div className="install-banner">
