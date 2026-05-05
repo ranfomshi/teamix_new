@@ -85,6 +85,202 @@ export const handler: Handler = async (event) => {
       return membership ? json({ success: true, membership }) : json({ error: 'Membership not found' }, 404)
     }
 
+    if (method === 'POST' && route === '/create-room') {
+      const body = parseBody<{
+        name?: string
+        playerName?: string
+        sportId?: number
+        teamAColor?: string
+        teamBColor?: string
+        skillLevel?: string
+        profilePicture?: string | null
+      }>(event)
+
+      if (!body.name?.trim()) return json({ error: 'Room name is required' }, 400)
+      if (!body.playerName?.trim()) return json({ error: 'Player name is required' }, 400)
+      if (!body.sportId) return json({ error: 'sportId is required' }, 400)
+
+      const [sport] = await db.sql`
+        SELECT id, name
+        FROM public."Sports"
+        WHERE id = ${body.sportId}
+      `
+      if (!sport) return json({ error: 'Invalid sport ID' }, 400)
+
+      const code = await generateRoomCode()
+      const rating = initialRating(body.skillLevel)
+
+      await db.sql`
+        UPDATE public."RoomMemberships"
+        SET "isActive" = false, "updatedAt" = NOW()
+        WHERE "auth0Id" = ${auth.sub}
+      `
+
+      const [room] = await db.sql`
+        INSERT INTO public."Rooms" (name, code, "sportId", "teamAColor", "teamBColor", "createdAt", "updatedAt")
+        VALUES (
+          ${body.name.trim()},
+          ${code},
+          ${body.sportId},
+          ${body.teamAColor ?? '#28d17c'},
+          ${body.teamBColor ?? '#f5c84b'},
+          NOW(),
+          NOW()
+        )
+        RETURNING id, name, code, "teamAColor", "teamBColor", "sportId"
+      `
+
+      const [player] = await db.sql`
+        INSERT INTO public."Players" (name, rating, "profilePicture", "createdAt", "updatedAt")
+        VALUES (${body.playerName.trim()}, ${rating}, ${body.profilePicture ?? null}, NOW(), NOW())
+        RETURNING id, name, rating, "profilePicture"
+      `
+
+      const [membership] = await db.sql`
+        INSERT INTO public."RoomMemberships" ("playerId", "auth0Id", "roomId", "isActive", "isAdmin", "isMember", "createdAt", "updatedAt")
+        VALUES (${player.id}, ${auth.sub}, ${room.id}, true, true, true, NOW(), NOW())
+        RETURNING "roomId", "playerId", "isActive", "isAdmin", "isMember"
+      `
+
+      await db.sql`
+        INSERT INTO public."Ratings" ("playerId", date, rating, "raterId", "roomId", "createdAt", "updatedAt")
+        VALUES (${player.id}, CURRENT_DATE, ${rating}, NULL, ${room.id}, NOW(), NOW())
+      `
+
+      return json({
+        room: {
+          roomId: room.id,
+          playerId: player.id,
+          isActive: true,
+          isAdmin: true,
+          name: room.name,
+          code: room.code,
+          teamAColor: room.teamAColor,
+          teamBColor: room.teamBColor,
+          sportName: sport.name,
+        },
+        player,
+        membership,
+      }, 201)
+    }
+
+    if (method === 'POST' && route === '/join-room') {
+      const body = parseBody<{ code?: string }>(event)
+      const code = body.code?.trim()
+      if (!code) return json({ error: 'Room code is required' }, 400)
+
+      const [room] = await db.sql`
+        SELECT r.id, r.name, r.code, r."teamAColor", r."teamBColor", s.name AS "sportName"
+        FROM public."Rooms" r
+        LEFT JOIN public."Sports" s ON s.id = r."sportId"
+        WHERE LOWER(r.code) = LOWER(${code})
+      `
+      if (!room) return json({ status: 'error', message: 'Room not found' }, 404)
+
+      const [existing] = await db.sql`
+        SELECT "roomId", "playerId", "isActive", "isAdmin", "isMember"
+        FROM public."RoomMemberships"
+        WHERE "auth0Id" = ${auth.sub}
+          AND "roomId" = ${room.id}
+          AND "isMember" = true
+      `
+
+      if (existing) {
+        return json({
+          status: 'already-member',
+          room,
+          membership: existing,
+        })
+      }
+
+      const unlinkedPlayers = await db.sql`
+        SELECT p.id, p.name, p.rating, p."profilePicture"
+        FROM public."RoomMemberships" rm
+        JOIN public."Players" p ON p.id = rm."playerId"
+        WHERE rm."roomId" = ${room.id}
+          AND rm."auth0Id" IS NULL
+          AND rm."isMember" = true
+        ORDER BY p.name
+      `
+
+      return json({ status: 'unlinked', room, unlinkedPlayers })
+    }
+
+    if (method === 'POST' && route === '/finalize-join-room') {
+      const body = parseBody<{
+        roomCode?: string
+        playerId?: number
+        newPlayerName?: string
+        skillLevel?: string
+        profilePicture?: string | null
+      }>(event)
+      if (!body.roomCode?.trim()) return json({ error: 'roomCode is required' }, 400)
+
+      const [room] = await db.sql`
+        SELECT r.id, r.name, r.code, r."teamAColor", r."teamBColor", s.name AS "sportName"
+        FROM public."Rooms" r
+        LEFT JOIN public."Sports" s ON s.id = r."sportId"
+        WHERE LOWER(r.code) = LOWER(${body.roomCode.trim()})
+      `
+      if (!room) return json({ status: 'error', message: 'Room not found' }, 404)
+
+      await db.sql`
+        UPDATE public."RoomMemberships"
+        SET "isActive" = false, "updatedAt" = NOW()
+        WHERE "auth0Id" = ${auth.sub}
+      `
+
+      let playerId = body.playerId
+      if (playerId) {
+        const [linked] = await db.sql`
+          UPDATE public."RoomMemberships"
+          SET "auth0Id" = ${auth.sub}, "isActive" = true, "updatedAt" = NOW()
+          WHERE "roomId" = ${room.id}
+            AND "playerId" = ${playerId}
+            AND "auth0Id" IS NULL
+            AND "isMember" = true
+          RETURNING "roomId", "playerId", "isActive", "isAdmin", "isMember"
+        `
+        if (!linked) return json({ error: 'That player profile is no longer available to link' }, 409)
+      } else {
+        if (!body.newPlayerName?.trim()) {
+          return json({ error: 'Choose an existing player or enter a player name' }, 400)
+        }
+
+        const rating = initialRating(body.skillLevel)
+        const [player] = await db.sql`
+          INSERT INTO public."Players" (name, rating, "profilePicture", "createdAt", "updatedAt")
+          VALUES (${body.newPlayerName.trim()}, ${rating}, ${body.profilePicture ?? null}, NOW(), NOW())
+          RETURNING id
+        `
+        playerId = player.id
+
+        await db.sql`
+          INSERT INTO public."RoomMemberships" ("playerId", "auth0Id", "roomId", "isActive", "isAdmin", "isMember", "createdAt", "updatedAt")
+          VALUES (${playerId}, ${auth.sub}, ${room.id}, true, false, true, NOW(), NOW())
+        `
+        await db.sql`
+          INSERT INTO public."Ratings" ("playerId", date, rating, "raterId", "roomId", "createdAt", "updatedAt")
+          VALUES (${playerId}, CURRENT_DATE, ${rating}, NULL, ${room.id}, NOW(), NOW())
+        `
+      }
+
+      return json({
+        success: true,
+        room: {
+          roomId: room.id,
+          playerId,
+          isActive: true,
+          isAdmin: false,
+          name: room.name,
+          code: room.code,
+          teamAColor: room.teamAColor,
+          teamBColor: room.teamBColor,
+          sportName: room.sportName,
+        },
+      })
+    }
+
     const active = await getActiveMembership(auth.sub)
     if (!active) {
       return json({ error: 'No active room membership found' }, 403)
@@ -93,6 +289,44 @@ export const handler: Handler = async (event) => {
     auth.roomId = active.roomId
     auth.playerId = active.playerId
     auth.isAdmin = active.isAdmin
+
+    const roomMatch = route.match(/^\/rooms\/(\d+)$/)
+    if (roomMatch && method === 'PUT') {
+      const roomId = Number(roomMatch[1])
+      if (!isActiveRoom(auth, roomId)) return json({ error: 'Switch to this room before managing it.' }, 403)
+      if (!auth.isAdmin) return json({ error: 'Admin privileges required.' }, 403)
+
+      const body = parseBody<{ name?: string; sportId?: number; teamAColor?: string; teamBColor?: string }>(event)
+      const [room] = await db.sql`
+        UPDATE public."Rooms"
+        SET name = COALESCE(${body.name?.trim() || null}, name),
+            "sportId" = COALESCE(${body.sportId ?? null}, "sportId"),
+            "teamAColor" = COALESCE(${body.teamAColor ?? null}, "teamAColor"),
+            "teamBColor" = COALESCE(${body.teamBColor ?? null}, "teamBColor"),
+            "updatedAt" = NOW()
+        WHERE id = ${roomId}
+        RETURNING id AS "roomId", name, code, "teamAColor", "teamBColor", "sportId"
+      `
+      return room ? json({ room }) : json({ error: 'Room not found' }, 404)
+    }
+
+    const roomMembersMatch = route.match(/^\/rooms\/(\d+)\/members$/)
+    if (roomMembersMatch && method === 'GET') {
+      const roomId = Number(roomMembersMatch[1])
+      if (!isActiveRoom(auth, roomId)) return json({ error: 'Switch to this room before managing members.' }, 403)
+
+      const members = await db.sql`
+        SELECT p.id AS "playerId", p.name, p."profilePicture",
+               rm."isAdmin", (rm."auth0Id" IS NOT NULL) AS "isLinked",
+               rm."favoritePositions"
+        FROM public."RoomMemberships" rm
+        JOIN public."Players" p ON p.id = rm."playerId"
+        WHERE rm."roomId" = ${roomId}
+          AND rm."isMember" = true
+        ORDER BY p.name ASC
+      `
+      return json({ members })
+    }
 
     if (method === 'GET' && route === '/current-player') {
       const [player] = await db.sql`
@@ -280,6 +514,103 @@ export const handler: Handler = async (event) => {
       return json(assignments)
     }
 
+    if (method === 'POST' && route === '/manual-teamassignment') {
+      const body = parseBody<{ gameweekId?: number; playerId?: number; team?: 'A' | 'B' | 'bench' | null }>(event)
+      if (!body.gameweekId || !body.playerId) return json({ error: 'gameweekId and playerId are required' }, 400)
+      if (!auth.isAdmin) return json({ error: 'Admin privileges required.' }, 403)
+
+      const [gameweek] = await db.sql`
+        SELECT id
+        FROM public."Gameweeks"
+        WHERE id = ${body.gameweekId}
+          AND "roomId" = ${active.roomId}
+      `
+      if (!gameweek) return json({ error: 'Gameweek not found' }, 404)
+
+      const [member] = await db.sql`
+        SELECT "playerId"
+        FROM public."RoomMemberships"
+        WHERE "roomId" = ${active.roomId}
+          AND "playerId" = ${body.playerId}
+          AND "isMember" = true
+      `
+      if (!member) return json({ error: 'Player is not in this room' }, 404)
+
+      if (!body.team || body.team === 'bench') {
+        await db.sql`
+          DELETE FROM public."TeamAssignments"
+          WHERE "gameweekId" = ${body.gameweekId}
+            AND "playerId" = ${body.playerId}
+            AND "roomId" = ${active.roomId}
+        `
+        return json({ success: true, playerId: body.playerId, team: null })
+      }
+
+      const [assignment] = await db.sql`
+        INSERT INTO public."TeamAssignments" (team, "playerId", "gameweekId", "roomId", "createdAt", "updatedAt")
+        VALUES (${body.team}, ${body.playerId}, ${body.gameweekId}, ${active.roomId}, NOW(), NOW())
+        ON CONFLICT ("playerId", "gameweekId", "roomId")
+        DO UPDATE SET team = EXCLUDED.team, "updatedAt" = NOW()
+        RETURNING id, team, "playerId", "gameweekId", "roomId"
+      `
+      return json({ success: true, assignment })
+    }
+
+    if (method === 'POST' && route === '/gameresults') {
+      const body = parseBody<{
+        gameweekId?: number
+        teamA_score?: number
+        teamB_score?: number
+        teamA_player_count?: number
+        teamB_player_count?: number
+      }>(event)
+      if (!auth.isAdmin) return json({ error: 'Admin privileges required.' }, 403)
+      if (!body.gameweekId || body.teamA_score === undefined || body.teamB_score === undefined) {
+        return json({ error: 'gameweekId, teamA_score and teamB_score are required' }, 400)
+      }
+      if (!Number.isFinite(body.teamA_score) || !Number.isFinite(body.teamB_score)) {
+        return json({ error: 'Scores must be valid numbers' }, 400)
+      }
+
+      const [gameweek] = await db.sql`
+        SELECT id
+        FROM public."Gameweeks"
+        WHERE id = ${body.gameweekId}
+          AND "roomId" = ${active.roomId}
+      `
+      if (!gameweek) return json({ error: 'Gameweek not found' }, 404)
+
+      const [counts] = await db.sql<{ team_a: string; team_b: string }>`
+        SELECT
+          COUNT(*) FILTER (WHERE team = 'A')::text AS team_a,
+          COUNT(*) FILTER (WHERE team = 'B')::text AS team_b
+        FROM public."TeamAssignments"
+        WHERE "gameweekId" = ${body.gameweekId}
+          AND "roomId" = ${active.roomId}
+      `
+
+      const [result] = await db.sql`
+        INSERT INTO public."GameResults" (
+          "gameweekId", "roomId", "teamA_score", "teamB_score",
+          "teamA_player_count", "teamB_player_count", "createdAt", "updatedAt"
+        )
+        VALUES (
+          ${body.gameweekId}, ${active.roomId}, ${body.teamA_score}, ${body.teamB_score},
+          ${body.teamA_player_count ?? Number(counts.team_a)}, ${body.teamB_player_count ?? Number(counts.team_b)},
+          NOW(), NOW()
+        )
+        ON CONFLICT ("gameweekId", "roomId")
+        DO UPDATE SET
+          "teamA_score" = EXCLUDED."teamA_score",
+          "teamB_score" = EXCLUDED."teamB_score",
+          "teamA_player_count" = EXCLUDED."teamA_player_count",
+          "teamB_player_count" = EXCLUDED."teamB_player_count",
+          "updatedAt" = NOW()
+        RETURNING id, "gameweekId", "teamA_score", "teamB_score", "teamA_player_count", "teamB_player_count"
+      `
+      return json(result)
+    }
+
     if (method === 'GET' && route === '/player-achievements') {
       const achievements = await db.sql`
         SELECT a.id, a.title, a.description,
@@ -297,13 +628,8 @@ export const handler: Handler = async (event) => {
     }
 
     const legacyNotYetPorted = [
-      '/create-room',
-      '/join-room',
-      '/finalize-join-room',
       '/unlink-player',
       '/pick-teams',
-      '/gameresults',
-      '/manual-teamassignment',
       '/teamassignments',
       '/ratings',
       '/votes',
@@ -387,6 +713,41 @@ async function getActiveMembership(auth0Id: string) {
     LIMIT 1
   `
   return membership
+}
+
+async function generateRoomCode() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const code = Array.from({ length: 5 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('')
+    const [existing] = await db.sql`
+      SELECT id
+      FROM public."Rooms"
+      WHERE code = ${code}
+    `
+    if (!existing) return code
+  }
+
+  throw new Error('Could not generate a unique room code')
+}
+
+function initialRating(skillLevel?: string) {
+  switch (skillLevel) {
+    case 'beginner':
+      return 800
+    case 'below_average':
+      return 900
+    case 'better_than_average':
+      return 1100
+    case 'experienced':
+      return 1200
+    default:
+      return 1000
+  }
+}
+
+function isActiveRoom(auth: AuthContext, roomId: number) {
+  return Number(auth.roomId) === Number(roomId)
 }
 
 function getRoute(event: HandlerEvent) {
