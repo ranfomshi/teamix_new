@@ -11,6 +11,24 @@ type AuthContext = {
   isAdmin?: boolean
 }
 
+type DraftPlayer = {
+  id: number
+  rating: number
+  favoritePositions: string[]
+}
+
+type TeamPickOptions = {
+  pairSynergyMap?: Record<string, number>
+  pairSynergyWeight?: number
+  ratingGapEpsilon?: number
+}
+
+const TEAM_PICKING_OPTIONS = {
+  pairSynergyWeight: 0.75,
+  ratingGapEpsilon: 0.015,
+  synergyLookbackGames: 40,
+}
+
 const db = getDatabase({
   connectionString: process.env.TEAMIX_DATABASE_URL ?? process.env.NETLIFY_DB_URL,
 })
@@ -281,6 +299,33 @@ export const handler: Handler = async (event) => {
       })
     }
 
+    if (method === 'POST' && route === '/unlink-player') {
+      const active = await getActiveMembership(auth.sub)
+      if (!active) return json({ error: 'No active room membership found' }, 404)
+
+      await db.sql`
+        UPDATE public."RoomMemberships"
+        SET "auth0Id" = NULL, "isActive" = false, "updatedAt" = NOW()
+        WHERE "auth0Id" = ${auth.sub}
+          AND "roomId" = ${active.roomId}
+          AND "isMember" = true
+      `
+      return json({ success: true, message: 'Player unlinked successfully' })
+    }
+
+    if (method === 'DELETE' && route === '/account-link') {
+      const body = parseBody<{ confirm?: string }>(event)
+      if (body.confirm !== 'DELETE') return json({ error: 'Type DELETE to confirm account unlink.' }, 400)
+
+      await db.sql`
+        UPDATE public."RoomMemberships"
+        SET "auth0Id" = NULL, "isActive" = false, "updatedAt" = NOW()
+        WHERE "auth0Id" = ${auth.sub}
+          AND "isMember" = true
+      `
+      return json({ success: true, message: 'Account disconnected from all rooms' })
+    }
+
     const active = await getActiveMembership(auth.sub)
     if (!active) {
       return json({ error: 'No active room membership found' }, 403)
@@ -347,7 +392,8 @@ export const handler: Handler = async (event) => {
           COALESCE(s.draws, 0)::int  AS draws,
           COALESCE(s.losses, 0)::int AS losses,
           COALESCE(s."goalsFor", 0)::int     AS "goalsFor",
-          COALESCE(s."goalsAgainst", 0)::int AS "goalsAgainst"
+          COALESCE(s."goalsAgainst", 0)::int AS "goalsAgainst",
+          COALESCE(f."recentForm", '[]'::json) AS "recentForm"
         FROM public."RoomMemberships" rm
         JOIN public."Players" p ON p.id = rm."playerId"
         LEFT JOIN (
@@ -375,6 +421,33 @@ export const handler: Handler = async (event) => {
             AND ta.team IN ('A', 'B')
           GROUP BY ta."playerId"
         ) s ON s."playerId" = p.id
+        LEFT JOIN LATERAL (
+          SELECT json_agg(form_row.result ORDER BY form_row.date ASC, form_row.id ASC) AS "recentForm"
+          FROM (
+            SELECT recent.id, recent.date, recent.result
+            FROM (
+              SELECT
+                gw.id,
+                gw.date,
+                CASE
+                  WHEN gr."teamA_score" = gr."teamB_score" THEN 'D'
+                  WHEN (ta.team = 'A' AND gr."teamA_score" > gr."teamB_score")
+                    OR (ta.team = 'B' AND gr."teamB_score" > gr."teamA_score") THEN 'W'
+                  ELSE 'L'
+                END AS result
+              FROM public."TeamAssignments" ta
+              JOIN public."GameResults" gr
+                ON gr."gameweekId" = ta."gameweekId" AND gr."roomId" = ta."roomId"
+              JOIN public."Gameweeks" gw
+                ON gw.id = ta."gameweekId" AND gw."roomId" = ta."roomId"
+              WHERE ta."roomId" = ${active.roomId}
+                AND ta."playerId" = p.id
+                AND ta.team IN ('A', 'B')
+              ORDER BY gw.date DESC, gw.id DESC
+              LIMIT 5
+            ) recent
+          ) form_row
+        ) f ON true
         WHERE rm."roomId" = ${active.roomId}
           AND rm."isMember" = true
         ORDER BY COALESCE(s.wins, 0) DESC, p.rating DESC NULLS LAST, p.name ASC
@@ -514,6 +587,37 @@ export const handler: Handler = async (event) => {
       if (!body.playerId || !body.gameweekId || typeof body.status !== 'boolean') {
         return json({ error: 'playerId, gameweekId and status are required' }, 400)
       }
+      if (body.playerId !== active.playerId && !auth.isAdmin) {
+        return json({ error: 'Admin privileges required to update another player.' }, 403)
+      }
+
+      const [target] = await db.sql<{ gameweekId: number; maxPlayers: number | null; playerId: number; currentStatus: boolean | null }>`
+        SELECT gw.id AS "gameweekId", gw."maxPlayers", rm."playerId", a.status AS "currentStatus"
+        FROM public."Gameweeks" gw
+        JOIN public."RoomMemberships" rm
+          ON rm."roomId" = gw."roomId"
+         AND rm."playerId" = ${body.playerId}
+         AND rm."isMember" = true
+        LEFT JOIN public."Availabilities" a
+          ON a."roomId" = gw."roomId"
+         AND a."gameweekId" = gw.id
+         AND a."playerId" = rm."playerId"
+        WHERE gw.id = ${body.gameweekId}
+          AND gw."roomId" = ${active.roomId}
+      `
+      if (!target) return json({ error: 'Gameweek or player not found in this room' }, 404)
+      if (body.status && target.maxPlayers && target.currentStatus !== true) {
+        const [countRow] = await db.sql<{ count: string }>`
+          SELECT COUNT(*)::text AS count
+          FROM public."Availabilities"
+          WHERE "gameweekId" = ${body.gameweekId}
+            AND "roomId" = ${active.roomId}
+            AND status = true
+        `
+        if (Number(countRow.count) >= target.maxPlayers) {
+          return json({ error: `Max players (${target.maxPlayers}) exceeded.` }, 400)
+        }
+      }
 
       const [availability] = await db.sql`
         INSERT INTO public."Availabilities" (status, "playerId", "gameweekId", "roomId", "createdAt", "updatedAt")
@@ -522,6 +626,7 @@ export const handler: Handler = async (event) => {
         DO UPDATE SET status = EXCLUDED.status, "updatedAt" = NOW()
         RETURNING status, "playerId", "gameweekId", "roomId"
       `
+      await rebuildDraftTeams(body.gameweekId, active.roomId)
       return json(availability)
     }
 
@@ -663,7 +768,6 @@ export const handler: Handler = async (event) => {
     }
 
     const legacyNotYetPorted = [
-      '/unlink-player',
       '/pick-teams',
       '/teamassignments',
       '/ratings',
@@ -783,6 +887,305 @@ function initialRating(skillLevel?: string) {
 
 function isActiveRoom(auth: AuthContext, roomId: number) {
   return Number(auth.roomId) === Number(roomId)
+}
+
+async function rebuildDraftTeams(gameweekId: number, roomId: number) {
+  const availablePlayers = await db.sql<{
+    id: number
+    rating: string | number | null
+    favoritePositions: string[] | null
+  }>`
+    SELECT p.id, p.rating, rm."favoritePositions"
+    FROM public."Availabilities" a
+    JOIN public."Players" p ON p.id = a."playerId"
+    JOIN public."RoomMemberships" rm
+      ON rm."playerId" = a."playerId"
+     AND rm."roomId" = a."roomId"
+     AND rm."isMember" = true
+    WHERE a."gameweekId" = ${gameweekId}
+      AND a."roomId" = ${roomId}
+      AND a.status = true
+    ORDER BY p.rating DESC NULLS LAST
+  `
+
+  const players = availablePlayers.map((player) => ({
+    id: player.id,
+    rating: Number(player.rating || 0),
+    favoritePositions: player.favoritePositions ?? [],
+  }))
+
+  const totalPlayers = players.length
+  let threshold = 0.15
+  if (totalPlayers === 6) threshold = 0.5
+  else if (totalPlayers <= 8) threshold = 0.4
+  else if (totalPlayers <= 10) threshold = 0.3
+  else if (totalPlayers <= 12) threshold = 0.25
+
+  const pairSynergyMap = await buildPairSynergyMap({
+    roomId,
+    playerIds: players.map((player) => player.id),
+    lookbackGames: TEAM_PICKING_OPTIONS.synergyLookbackGames,
+  })
+
+  const teamResult = await pickBalancedTeams(players, threshold, {
+    pairSynergyMap,
+    pairSynergyWeight: TEAM_PICKING_OPTIONS.pairSynergyWeight,
+    ratingGapEpsilon: TEAM_PICKING_OPTIONS.ratingGapEpsilon,
+  })
+
+  await db.sql`
+    DELETE FROM public."TeamAssignments"
+    WHERE "gameweekId" = ${gameweekId}
+      AND "roomId" = ${roomId}
+  `
+
+  if (!teamResult) return
+
+  const assignments = [
+    ...teamResult.teamA.map((player) => ({ playerId: player.id, team: 'A' })),
+    ...teamResult.teamB.map((player) => ({ playerId: player.id, team: 'B' })),
+  ]
+
+  for (const assignment of assignments) {
+    await db.sql`
+      INSERT INTO public."TeamAssignments" (team, "playerId", "gameweekId", "roomId", "createdAt", "updatedAt")
+      VALUES (${assignment.team}, ${assignment.playerId}, ${gameweekId}, ${roomId}, NOW(), NOW())
+    `
+  }
+}
+
+function averageRating(players: DraftPlayer[]) {
+  const sum = players.reduce((acc, player) => acc + (player.rating || 0), 0)
+  return players.length ? sum / players.length : 0
+}
+
+function isRatingBalanced(avgA: number, avgB: number, threshold = 0.1) {
+  const max = Math.max(avgA, avgB)
+  const min = Math.min(avgA, avgB)
+  return max === 0 ? true : (max - min) / max <= threshold
+}
+
+function generateCombinations(players: DraftPlayer[]) {
+  const result: Array<[DraftPlayer[], DraftPlayer[]]> = []
+  const total = players.length
+  const half = Math.floor(total / 2)
+  const upperHalf = Math.ceil(total / 2)
+
+  function backtrack(start: number, teamA: DraftPlayer[]) {
+    if (teamA.length === half || teamA.length === upperHalf) {
+      const teamB = players.filter((player) => !teamA.includes(player))
+      result.push([teamA.slice(), teamB])
+      return
+    }
+
+    for (let index = start; index < players.length; index += 1) {
+      teamA.push(players[index])
+      backtrack(index + 1, teamA)
+      teamA.pop()
+    }
+  }
+
+  backtrack(0, [])
+  return result
+}
+
+function getPositionPreferenceScore(team: DraftPlayer[], allPositions: Set<string>) {
+  if (allPositions.size === 0) return 0
+
+  const positionCount = Object.fromEntries([...allPositions].map((position) => [position, 0]))
+  for (const player of team) {
+    const prefs = player.favoritePositions || []
+    if (prefs[0] && allPositions.has(prefs[0])) positionCount[prefs[0]] += 3
+    if (prefs[1] && allPositions.has(prefs[1])) positionCount[prefs[1]] += 2
+    if (prefs[2] && allPositions.has(prefs[2])) positionCount[prefs[2]] += 1
+  }
+
+  const teamScore = Object.values(positionCount).reduce((acc, value) => acc + value, 0)
+  if (teamScore === 0) return 0
+
+  const idealCount = teamScore / allPositions.size
+  let deviationSum = 0
+  for (const position of Object.keys(positionCount)) {
+    deviationSum += Math.abs(positionCount[position] - idealCount)
+  }
+
+  return deviationSum / allPositions.size
+}
+
+function getRatingGapRatio(teamA: DraftPlayer[], teamB: DraftPlayer[]) {
+  const avgA = averageRating(teamA)
+  const avgB = averageRating(teamB)
+  const max = Math.max(avgA, avgB)
+  const min = Math.min(avgA, avgB)
+  return max === 0 ? 0 : (max - min) / max
+}
+
+function buildPairKey(a: number, b: number) {
+  const first = Number(a)
+  const second = Number(b)
+  return first < second ? `${first}:${second}` : `${second}:${first}`
+}
+
+function getTeamPairSynergyScore(team: DraftPlayer[], pairSynergyMap: Record<string, number>) {
+  if (!team || team.length < 2) return 0
+
+  let total = 0
+  let pairCount = 0
+  for (let first = 0; first < team.length; first += 1) {
+    for (let second = first + 1; second < team.length; second += 1) {
+      const key = buildPairKey(team[first].id, team[second].id)
+      total += Number(pairSynergyMap[key] || 0)
+      pairCount += 1
+    }
+  }
+
+  return pairCount === 0 ? 0 : total / pairCount
+}
+
+function isBetterCandidate(
+  ratingGap: number,
+  adjustedScore: number,
+  bestRatingGap: number,
+  bestAdjustedScore: number,
+  ratingGapEpsilon: number,
+) {
+  if (ratingGap < bestRatingGap - ratingGapEpsilon) return true
+  return Math.abs(ratingGap - bestRatingGap) <= ratingGapEpsilon && adjustedScore < bestAdjustedScore
+}
+
+async function pickBalancedTeams(players: DraftPlayer[], threshold = 0.1, options: TeamPickOptions = {}) {
+  if (players.length === 0) return { teamA: [], teamB: [] }
+  if (players.length === 1) return { teamA: [players[0]], teamB: [] }
+
+  const allPositions = new Set<string>()
+  players.forEach((player) => (player.favoritePositions || []).forEach((position) => allPositions.add(position)))
+
+  const combos = generateCombinations(players)
+  const pairSynergyMap = options.pairSynergyMap || {}
+  const pairSynergyWeight =
+    typeof options.pairSynergyWeight === 'number' && Number.isFinite(options.pairSynergyWeight)
+      ? options.pairSynergyWeight
+      : 0.75
+  const ratingGapEpsilon =
+    typeof options.ratingGapEpsilon === 'number' && Number.isFinite(options.ratingGapEpsilon)
+      ? options.ratingGapEpsilon
+      : 0.015
+  const adjustedThreshold = players.length % 2 !== 0 ? threshold * 1.5 : threshold
+
+  let bestWithinThreshold: { teamA: DraftPlayer[]; teamB: DraftPlayer[] } | null = null
+  let bestWithinRatingGap = Infinity
+  let bestWithinAdjustedScore = Infinity
+  let bestOverall: { teamA: DraftPlayer[]; teamB: DraftPlayer[] } | null = null
+  let bestOverallRatingGap = Infinity
+  let bestOverallAdjustedScore = Infinity
+
+  for (const [teamA, teamB] of combos) {
+    const ratingGap = getRatingGapRatio(teamA, teamB)
+    const positionScore = getPositionPreferenceScore(teamA, allPositions) + getPositionPreferenceScore(teamB, allPositions)
+    const pairSynergyScore = getTeamPairSynergyScore(teamA, pairSynergyMap) + getTeamPairSynergyScore(teamB, pairSynergyMap)
+    const adjustedScore = positionScore - pairSynergyWeight * pairSynergyScore
+    const isWithinThreshold = isRatingBalanced(averageRating(teamA), averageRating(teamB), adjustedThreshold)
+
+    if (isBetterCandidate(ratingGap, adjustedScore, bestOverallRatingGap, bestOverallAdjustedScore, ratingGapEpsilon)) {
+      bestOverall = { teamA, teamB }
+      bestOverallRatingGap = ratingGap
+      bestOverallAdjustedScore = adjustedScore
+    }
+
+    if (
+      isWithinThreshold &&
+      isBetterCandidate(ratingGap, adjustedScore, bestWithinRatingGap, bestWithinAdjustedScore, ratingGapEpsilon)
+    ) {
+      bestWithinThreshold = { teamA, teamB }
+      bestWithinRatingGap = ratingGap
+      bestWithinAdjustedScore = adjustedScore
+    }
+  }
+
+  return bestWithinThreshold ?? bestOverall
+}
+
+function getTeamOutcomeScore(result: { teamA_score: number; teamB_score: number }, team: string) {
+  if (result.teamA_score === result.teamB_score) return 0
+  const teamAWin = result.teamA_score > result.teamB_score
+  if (team === 'A') return teamAWin ? 1 : -1
+  return teamAWin ? -1 : 1
+}
+
+async function buildPairSynergyMap({
+  roomId,
+  playerIds = [],
+  lookbackGames,
+}: {
+  roomId: number
+  playerIds?: number[]
+  lookbackGames: number
+}) {
+  const targetPlayerIds = new Set((playerIds || []).map((id) => Number(id)))
+  const recentResults = await db.sql<{
+    gameweekId: number
+    teamA_score: number
+    teamB_score: number
+  }>`
+    SELECT "gameweekId", "teamA_score", "teamB_score"
+    FROM public."GameResults"
+    WHERE "roomId" = ${roomId}
+    ORDER BY "createdAt" DESC
+    LIMIT ${lookbackGames}
+  `
+
+  if (!recentResults.length) return {}
+
+  const resultByGameweekId = new Map(recentResults.map((row) => [Number(row.gameweekId), row]))
+  const gameweekIds = [...resultByGameweekId.keys()]
+  const assignments = await db.sql<{ gameweekId: number; team: string; playerId: number }>`
+    SELECT "gameweekId", team, "playerId"
+    FROM public."TeamAssignments"
+    WHERE "roomId" = ${roomId}
+      AND "gameweekId" = ANY(${gameweekIds}::int[])
+  `
+
+  const assignmentsByGameweekTeam = new Map<string, number[]>()
+  for (const row of assignments) {
+    const playerId = Number(row.playerId)
+    if (targetPlayerIds.size && !targetPlayerIds.has(playerId)) continue
+
+    const key = `${Number(row.gameweekId)}:${row.team}`
+    const existing = assignmentsByGameweekTeam.get(key) || []
+    existing.push(playerId)
+    assignmentsByGameweekTeam.set(key, existing)
+  }
+
+  const pairStats = new Map<string, { score: number; games: number }>()
+  for (const [groupKey, playerList] of assignmentsByGameweekTeam.entries()) {
+    if (playerList.length < 2) continue
+
+    const [gameweekIdRaw, team] = groupKey.split(':')
+    const result = resultByGameweekId.get(Number(gameweekIdRaw))
+    if (!result) continue
+
+    const outcomeScore = getTeamOutcomeScore(result, team)
+    const sortedPlayers = [...playerList].sort((a, b) => a - b)
+    for (let first = 0; first < sortedPlayers.length; first += 1) {
+      for (let second = first + 1; second < sortedPlayers.length; second += 1) {
+        const pairKey = buildPairKey(sortedPlayers[first], sortedPlayers[second])
+        const stat = pairStats.get(pairKey) || { score: 0, games: 0 }
+        stat.games += 1
+        stat.score += outcomeScore
+        pairStats.set(pairKey, stat)
+      }
+    }
+  }
+
+  const smoothing = 3
+  const pairSynergyMap: Record<string, number> = {}
+  for (const [pairKey, stat] of pairStats.entries()) {
+    const meanOutcome = stat.games > 0 ? stat.score / stat.games : 0
+    const confidence = stat.games / (stat.games + smoothing)
+    pairSynergyMap[pairKey] = meanOutcome * confidence
+  }
+
+  return pairSynergyMap
 }
 
 function getRoute(event: HandlerEvent) {

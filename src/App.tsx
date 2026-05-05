@@ -15,7 +15,6 @@ import {
   Shield,
   Shirt,
   Trash2,
-  Trophy,
   UsersRound,
   X,
 } from 'lucide-react'
@@ -47,6 +46,7 @@ type Player = {
   losses?: number
   goalsFor?: number
   goalsAgainst?: number
+  recentForm?: Array<'W' | 'D' | 'L'>
 }
 
 type Gameweek = {
@@ -153,7 +153,7 @@ function AuthenticatedShell() {
   }
 
   if (!apiState) {
-    return <Splash label="Finding your active room..." />
+    return <LoadingShell userName={user?.name ?? 'Player'} />
   }
 
   if (!apiState.activeRoom) {
@@ -173,12 +173,37 @@ function AuthenticatedShell() {
               <AccountView
                 room={apiState.activeRoom}
                 memberships={apiState.memberships}
+                onRoomChanged={() => setReloadKey((key) => key + 1)}
                 onLogout={() => logout({ logoutParams: { returnTo: window.location.origin } })}
               />
             }
           />
           <Route path="*" element={<Navigate to="/players" replace />} />
         </Routes>
+      </main>
+      <BottomNav />
+    </div>
+  )
+}
+
+function LoadingShell({ userName }: { userName: string }) {
+  return (
+    <div className="app-shell">
+      <header className="top-bar">
+        <div className="room-mark">
+          <img src="/fp_logo.png" alt="" />
+          <div>
+            <strong>Loading Teamix</strong>
+            <span>{userName}</span>
+          </div>
+        </div>
+        <div className="room-code">...</div>
+      </header>
+      <main className="app-content">
+        <div className="shell-loading">
+          <img src="/fp_logo.png" alt="" />
+          <p>Finding your active room...</p>
+        </div>
       </main>
       <BottomNav />
     </div>
@@ -719,8 +744,9 @@ function FixturesView({ room }: { room: Room }) {
   const [refreshKey, setRefreshKey] = useState(0)
   const { data: fixtures, error } = useApi<Gameweek[]>(`/api/gameweeks?refresh=${refreshKey}`, getAccessTokenSilently)
   const [showNewFixture, setShowNewFixture] = useState(false)
-  const upcoming = fixtures?.filter((fixture) => new Date(fixture.date).getTime() >= Date.now()).slice(-3) ?? []
-  const recent = fixtures?.slice(0, 6) ?? []
+  const nextFixture = (fixtures ?? [])
+    .filter((fixture) => new Date(fixture.date).getTime() >= Date.now())
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
 
   return (
     <section className="screen">
@@ -744,8 +770,8 @@ function FixturesView({ room }: { room: Room }) {
       <div className="pitch-card">
         <div>
           <span>Next up</span>
-          <strong>{upcoming[0] ? formatFixtureDate(upcoming[0]) : 'No upcoming fixture'}</strong>
-          <p>{upcoming[0]?.location ?? 'Set a venue when creating the fixture.'}</p>
+          <strong>{nextFixture ? formatFixtureDate(nextFixture) : 'No upcoming fixture'}</strong>
+          <p>{nextFixture?.location ?? 'Set a venue when creating the fixture.'}</p>
         </div>
         <div className="versus">
           <span style={{ background: room.teamAColor ?? '#1cb36b' }} />
@@ -758,7 +784,7 @@ function FixturesView({ room }: { room: Room }) {
       {!fixtures && !error ? <SkeletonList /> : null}
 
       <div className="fixture-list">
-        {recent.map((fixture) => (
+        {fixtures?.map((fixture) => (
           <FixtureCard
             key={fixture.id}
             fixture={fixture}
@@ -844,6 +870,7 @@ function FixtureCard({
   const [error, setError] = useState<string | null>(null)
   const [adminAction, setAdminAction] = useState<AdminAction>(null)
   const [deleting, setDeleting] = useState(false)
+  const [savingAvailability, setSavingAvailability] = useState(false)
 
   useEffect(() => {
     setGameResult(fixture.gameResult)
@@ -903,9 +930,30 @@ function FixtureCard({
     setAdminAction((current) => current === action ? null : action)
   }
 
+  async function setAvailability(status: boolean, playerId = room.playerId) {
+    setSavingAvailability(true)
+    setError(null)
+    try {
+      await apiSend('/api/availability', getAccessTokenSilently, {
+        playerId,
+        gameweekId: fixture.id,
+        status,
+      })
+      setDetailKey((key) => key + 1)
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Could not update availability')
+    } finally {
+      setSavingAvailability(false)
+    }
+  }
+
+  const isPast = isFixturePast(fixture)
   const available = detail.availability?.filter((row) => row.status === true) ?? []
   const unavailable = detail.availability?.filter((row) => row.status === false) ?? []
   const waiting = detail.availability?.filter((row) => row.status === null) ?? []
+  const myAvailability = detail.availability?.find((row) => row.playerId === room.playerId)?.status ?? null
+  const teamAPlayers = detail.assignments?.filter((item) => item.team === 'A').map((item) => item.Player) ?? []
+  const teamBPlayers = detail.assignments?.filter((item) => item.team === 'B').map((item) => item.Player) ?? []
 
   return (
     <article className={`fixture-card ${expanded ? 'expanded' : ''}`}>
@@ -927,7 +975,15 @@ function FixtureCard({
           {loading ? <p>Loading...</p> : null}
           {error ? <InlineError message={error} /> : null}
 
-          {detail.availability ? (
+          {!isPast && detail.availability ? (
+            <AvailabilityControl
+              status={myAvailability}
+              saving={savingAvailability}
+              onSet={setAvailability}
+            />
+          ) : null}
+
+          {!isPast && detail.availability ? (
             <div className="detail-stats">
               <StatCard label="Available" value={available.length} />
               <StatCard label="Out" value={unavailable.length} />
@@ -936,19 +992,23 @@ function FixtureCard({
           ) : null}
 
           {detail.assignments && detail.assignments.length > 0 ? (
-            <div className="team-columns">
-              <TeamList title="Team A" color={room.teamAColor ?? '#28d17c'} players={detail.assignments.filter((item) => item.team === 'A').map((item) => item.Player)} />
-              <TeamList title="Team B" color={room.teamBColor ?? '#f5c84b'} players={detail.assignments.filter((item) => item.team === 'B').map((item) => item.Player)} />
+            <div className="draft-teams">
+              <strong>{isPast ? 'Teams' : 'Draft teams'}</strong>
+              <div className="team-columns">
+                <TeamList title="Team A" color={room.teamAColor ?? '#28d17c'} players={teamAPlayers} />
+                <TeamList title="Team B" color={room.teamBColor ?? '#f5c84b'} players={teamBPlayers} />
+              </div>
             </div>
           ) : (
-            detail.availability ? <p className="muted-note">Teams have not been picked for this fixture yet.</p> : null
+            detail.availability ? <p className="muted-note">{isPast ? 'Teams were not recorded for this fixture.' : 'Draft teams will update as availability changes.'}</p> : null
           )}
 
-          {available.length > 0 ? (
-            <div className="mini-player-list">
-              <strong>Available players</strong>
-              {available.slice(0, 8).map((row) => <span key={row.playerId}>{row.Player.name}</span>)}
-            </div>
+          {!isPast && room.isAdmin && detail.availability ? (
+            <AdminAvailabilityPanel
+              availability={detail.availability}
+              saving={savingAvailability}
+              onSet={setAvailability}
+            />
           ) : null}
 
           {room.isAdmin ? (
@@ -1022,6 +1082,92 @@ function TeamList({ title, color, players }: { title: string; color: string; pla
     <div className="team-list" style={{ borderColor: color }}>
       <strong>{title}</strong>
       {players.map((player) => <span key={player.id}>{player.name}</span>)}
+    </div>
+  )
+}
+
+function AvailabilityControl({
+  status,
+  saving,
+  onSet,
+}: {
+  status: boolean | null
+  saving: boolean
+  onSet: (status: boolean) => void
+}) {
+  return (
+    <div className="availability-control">
+      <strong>Your availability</strong>
+      <div>
+        <button
+          type="button"
+          className={status === true ? 'active available' : ''}
+          disabled={saving}
+          onClick={() => onSet(true)}
+        >
+          Available
+        </button>
+        <button
+          type="button"
+          className={status === false ? 'active unavailable' : ''}
+          disabled={saving}
+          onClick={() => onSet(false)}
+        >
+          Out
+        </button>
+      </div>
+      {status === null ? <span>Not set yet</span> : null}
+    </div>
+  )
+}
+
+function AdminAvailabilityPanel({
+  availability,
+  saving,
+  onSet,
+}: {
+  availability: Array<{ playerId: number; status: boolean | null; Player: Player }>
+  saving: boolean
+  onSet: (status: boolean, playerId?: number) => void
+}) {
+  const [search, setSearch] = useState('')
+  const visibleRows = availability.filter((row) =>
+    row.Player.name.toLowerCase().includes(search.trim().toLowerCase()),
+  )
+
+  return (
+    <div className="admin-availability-panel">
+      <strong>Set player availability</strong>
+      <input
+        className="availability-search"
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Search players"
+      />
+      {visibleRows.map((row) => (
+        <div className="availability-row" key={row.playerId}>
+          <span>{row.Player.name}</span>
+          <div>
+            <button
+              type="button"
+              className={row.status === true ? 'active available' : ''}
+              disabled={saving}
+              onClick={() => onSet(true, row.playerId)}
+            >
+              In
+            </button>
+            <button
+              type="button"
+              className={row.status === false ? 'active unavailable' : ''}
+              disabled={saving}
+              onClick={() => onSet(false, row.playerId)}
+            >
+              Out
+            </button>
+          </div>
+        </div>
+      ))}
+      {visibleRows.length === 0 ? <p className="muted-note">No players match that search.</p> : null}
     </div>
   )
 }
@@ -1103,10 +1249,12 @@ function ResultForm({
 function AccountView({
   room,
   memberships,
+  onRoomChanged,
   onLogout,
 }: {
   room: Room
   memberships: Room[]
+  onRoomChanged: () => void
   onLogout: () => void
 }) {
   const { getAccessTokenSilently, user } = useAuth0()
@@ -1117,6 +1265,14 @@ function AccountView({
   const [teamBColor, setTeamBColor] = useState(room.teamBColor ?? '#f5c84b')
   const [saveState, setSaveState] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [showRoomEdit, setShowRoomEdit] = useState(false)
+
+  useEffect(() => {
+    setRoomName(room.name)
+    setSportId(room.sportId ?? '')
+    setTeamAColor(room.teamAColor ?? '#28d17c')
+    setTeamBColor(room.teamBColor ?? '#f5c84b')
+  }, [room])
 
   async function saveRoom() {
     setSaving(true)
@@ -1131,7 +1287,8 @@ function AccountView({
           teamBColor,
         },
       })
-      setSaveState('Room updated. Reload to refresh the top bar.')
+      setSaveState('Room updated.')
+      onRoomChanged()
     } catch (caughtError) {
       setSaveState(caughtError instanceof Error ? caughtError.message : 'Could not update room')
     } finally {
@@ -1154,47 +1311,386 @@ function AccountView({
       <div className="settings-list">
         <SettingsRow icon={<Shield size={20} />} label="Active room" value={`${room.name} · ${room.code}`} />
         <SettingsRow icon={<UsersRound size={20} />} label="Memberships" value={`${memberships.length} room${memberships.length === 1 ? '' : 's'}`} />
-        <SettingsRow icon={<Trophy size={20} />} label="Sports library" value={`${sports?.length ?? '--'} sports`} />
       </div>
 
+      <RoomAccessPanel
+        room={room}
+        memberships={memberships}
+        onRoomChanged={onRoomChanged}
+      />
+
       {room.isAdmin ? (
-        <div className="form-panel wide">
-          <h2>Room management</h2>
-          {saveState ? <p className="muted-note">{saveState}</p> : null}
-          <label>
-            Room name
-            <input value={roomName} onChange={(event) => setRoomName(event.target.value)} />
-          </label>
-          <label>
-            Sport
-            <select value={sportId} onChange={(event) => setSportId(Number(event.target.value))}>
-              <option value="">Choose sport</option>
-              {sports?.map((sport) => (
-                <option key={sport.id} value={sport.id}>{sport.name}</option>
-              ))}
-            </select>
-          </label>
-          <div className="color-grid">
-            <label>
-              Team A
-              <input type="color" value={teamAColor} onChange={(event) => setTeamAColor(event.target.value)} />
-            </label>
-            <label>
-              Team B
-              <input type="color" value={teamBColor} onChange={(event) => setTeamBColor(event.target.value)} />
-            </label>
-          </div>
-          <button className="primary-action compact" type="button" onClick={saveRoom} disabled={saving || !roomName}>
-            Save room
+        <div className="collapsible-panel">
+          <button className="advanced-toggle" type="button" onClick={() => setShowRoomEdit((value) => !value)}>
+            <span>Room management</span>
+            <ChevronDown className={showRoomEdit ? 'open' : ''} size={17} />
           </button>
+          {showRoomEdit ? (
+            <div className="form-panel wide embedded">
+              {saveState ? <p className="muted-note">{saveState}</p> : null}
+              <label>
+                Room name
+                <input value={roomName} onChange={(event) => setRoomName(event.target.value)} />
+              </label>
+              <label>
+                Sport
+                <select value={sportId} onChange={(event) => setSportId(Number(event.target.value))}>
+                  <option value="">Choose sport</option>
+                  {sports?.map((sport) => (
+                    <option key={sport.id} value={sport.id}>{sport.name}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="color-grid">
+                <label>
+                  Team A
+                  <input type="color" value={teamAColor} onChange={(event) => setTeamAColor(event.target.value)} />
+                </label>
+                <label>
+                  Team B
+                  <input type="color" value={teamBColor} onChange={(event) => setTeamBColor(event.target.value)} />
+                </label>
+              </div>
+              <button className="primary-action compact" type="button" onClick={saveRoom} disabled={saving || !roomName}>
+                Save room
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : null}
+
+      <AdvancedAccountActions
+        room={room}
+        onRoomChanged={onRoomChanged}
+        onLogout={onLogout}
+      />
 
       <button className="logout-button" type="button" onClick={onLogout}>
         <LogOut size={18} />
         Sign out
       </button>
     </section>
+  )
+}
+
+function RoomAccessPanel({
+  room,
+  memberships,
+  onRoomChanged,
+}: {
+  room: Room
+  memberships: Room[]
+  onRoomChanged: () => void
+}) {
+  const { getAccessTokenSilently, user } = useAuth0()
+  const [roomCode, setRoomCode] = useState('')
+  const [playerName, setPlayerName] = useState(user?.name ?? '')
+  const [skillLevel, setSkillLevel] = useState('average')
+  const [joinResult, setJoinResult] = useState<JoinRoomResponse | null>(null)
+  const { data: sports } = useApi<Sport[]>('/api/sports', getAccessTokenSilently, false)
+  const [roomMode, setRoomMode] = useState<'join' | 'create'>('join')
+  const [newRoomName, setNewRoomName] = useState('')
+  const [newSportId, setNewSportId] = useState<number | ''>('')
+  const [newTeamAColor, setNewTeamAColor] = useState('#28d17c')
+  const [newTeamBColor, setNewTeamBColor] = useState('#f5c84b')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function activateRoom(roomId: number) {
+    setBusy(true)
+    setError(null)
+    try {
+      await apiSend('/api/set-active-room', getAccessTokenSilently, { roomId })
+      onRoomChanged()
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Could not switch room')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function joinRoom() {
+    setBusy(true)
+    setError(null)
+    setJoinResult(null)
+    try {
+      const response = await apiSend<JoinRoomResponse>('/api/join-room', getAccessTokenSilently, { code: roomCode })
+      setJoinResult(response)
+      if (response.status === 'already-member' && response.room) {
+        await activateRoom(response.room.id)
+      }
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Could not find room')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function finalizeJoin(playerId?: number) {
+    setBusy(true)
+    setError(null)
+    try {
+      await apiSend('/api/finalize-join-room', getAccessTokenSilently, {
+        roomCode,
+        playerId,
+        newPlayerName: playerId ? undefined : playerName,
+        skillLevel,
+        profilePicture: user?.picture ?? null,
+      })
+      onRoomChanged()
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Could not join room')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function createRoom() {
+    setBusy(true)
+    setError(null)
+    try {
+      await apiSend('/api/create-room', getAccessTokenSilently, {
+        name: newRoomName,
+        playerName,
+        sportId: Number(newSportId),
+        teamAColor: newTeamAColor,
+        teamBColor: newTeamBColor,
+        skillLevel,
+        profilePicture: user?.picture ?? null,
+      })
+      onRoomChanged()
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Could not create room')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="form-panel wide room-access-panel">
+      <h2>Rooms</h2>
+      {error ? <InlineError message={error} /> : null}
+      <div className="room-list compact">
+        {memberships.map((membership) => (
+          <div className="room-card" key={membership.roomId}>
+            <div>
+              <strong>{membership.name}</strong>
+              <span>{membership.code}{membership.roomId === room.roomId ? ' - active' : ''}</span>
+            </div>
+            <button
+              type="button"
+              disabled={busy || membership.roomId === room.roomId}
+              onClick={() => activateRoom(membership.roomId)}
+            >
+              Switch
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="mode-tabs compact-tabs">
+        <button className={roomMode === 'join' ? 'active' : ''} type="button" onClick={() => setRoomMode('join')}>Join</button>
+        <button className={roomMode === 'create' ? 'active' : ''} type="button" onClick={() => setRoomMode('create')}>Create</button>
+      </div>
+
+      {roomMode === 'join' ? (
+        <>
+          <label>
+            Join another room
+            <input value={roomCode} onChange={(event) => setRoomCode(event.target.value.trim())} placeholder="Room code" />
+          </label>
+          <button className="primary-action compact" type="button" disabled={busy || !roomCode} onClick={joinRoom}>
+            Find room
+          </button>
+          {joinResult?.room ? (
+            <div className="join-result">
+              <strong>{joinResult.room.name}</strong>
+              <span>{joinResult.room.sportName ?? 'Team sport'} - {joinResult.room.code}</span>
+              {joinResult.unlinkedPlayers && joinResult.unlinkedPlayers.length > 0 ? (
+                <>
+                  <p>Link to an existing player profile</p>
+                  {joinResult.unlinkedPlayers.map((player) => (
+                    <button type="button" key={player.id} onClick={() => finalizeJoin(player.id)} disabled={busy}>
+                      {player.name}
+                    </button>
+                  ))}
+                </>
+              ) : null}
+              <label>
+                {joinResult.unlinkedPlayers && joinResult.unlinkedPlayers.length > 0 ? 'Your name' : 'Create your player profile'}
+                <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} placeholder="Your name" />
+              </label>
+              <select value={skillLevel} onChange={(event) => setSkillLevel(event.target.value)}>
+                <option value="beginner">Beginner</option>
+                <option value="below_average">Below average</option>
+                <option value="average">Average</option>
+                <option value="better_than_average">Better than average</option>
+                <option value="experienced">Experienced</option>
+              </select>
+              <button className="primary-action compact" type="button" onClick={() => finalizeJoin()} disabled={busy || !playerName}>
+                Join as new player
+              </button>
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <div className="create-room-panel">
+          <label>
+            Room name
+            <input value={newRoomName} onChange={(event) => setNewRoomName(event.target.value)} placeholder="Sunday 7-a-side" />
+          </label>
+          <label>
+            Your player name
+            <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} placeholder="Your name" />
+          </label>
+          <label>
+            Sport
+            <select value={newSportId} onChange={(event) => setNewSportId(Number(event.target.value))}>
+              <option value="">Choose sport</option>
+              {sports?.map((sport) => (
+                <option key={sport.id} value={sport.id}>{sport.name}</option>
+              ))}
+            </select>
+          </label>
+          <select value={skillLevel} onChange={(event) => setSkillLevel(event.target.value)}>
+            <option value="beginner">Beginner</option>
+            <option value="below_average">Below average</option>
+            <option value="average">Average</option>
+            <option value="better_than_average">Better than average</option>
+            <option value="experienced">Experienced</option>
+          </select>
+          <div className="color-grid">
+            <label>
+              Team A
+              <input type="color" value={newTeamAColor} onChange={(event) => setNewTeamAColor(event.target.value)} />
+            </label>
+            <label>
+              Team B
+              <input type="color" value={newTeamBColor} onChange={(event) => setNewTeamBColor(event.target.value)} />
+            </label>
+          </div>
+          <button
+            className="primary-action compact"
+            type="button"
+            disabled={busy || !newRoomName || !playerName || !newSportId}
+            onClick={createRoom}
+          >
+            Create room
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AdvancedAccountActions({
+  room,
+  onRoomChanged,
+  onLogout,
+}: {
+  room: Room
+  onRoomChanged: () => void
+  onLogout: () => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="advanced-panel">
+      <button className="advanced-toggle" type="button" onClick={() => setOpen((value) => !value)}>
+        <span>Advanced</span>
+        <ChevronDown className={open ? 'open' : ''} size={17} />
+      </button>
+      {open ? (
+        <DangerZone
+          room={room}
+          onRoomChanged={onRoomChanged}
+          onLogout={onLogout}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function DangerZone({
+  room,
+  onRoomChanged,
+  onLogout,
+}: {
+  room: Room
+  onRoomChanged: () => void
+  onLogout: () => void
+}) {
+  const { getAccessTokenSilently } = useAuth0()
+  const [mode, setMode] = useState<'leave' | 'disconnect' | null>(null)
+  const [confirmText, setConfirmText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function leaveRoom() {
+    setBusy(true)
+    setError(null)
+    try {
+      await apiSend('/api/unlink-player', getAccessTokenSilently, {})
+      setMode(null)
+      setConfirmText('')
+      onRoomChanged()
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Could not leave room')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function disconnectAccount() {
+    setBusy(true)
+    setError(null)
+    try {
+      await apiRequest('/api/account-link', getAccessTokenSilently, {
+        method: 'DELETE',
+        body: { confirm: confirmText },
+      })
+      onLogout()
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Could not disconnect account')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="danger-zone">
+      <h2>Account actions</h2>
+      {error ? <InlineError message={error} /> : null}
+      <button className="secondary-action" type="button" onClick={() => setMode(mode === 'leave' ? null : 'leave')}>
+        Leave active room
+      </button>
+      {mode === 'leave' ? (
+        <div className="danger-confirm">
+          <strong>Leave {room.name}?</strong>
+          <p>This unlinks your login from your player profile in this room. The player, fixtures, results, and stats stay in the room.</p>
+          <button className="danger-button" type="button" onClick={leaveRoom} disabled={busy}>
+            Yes, leave this room
+          </button>
+        </div>
+      ) : null}
+
+      <button className="secondary-action" type="button" onClick={() => setMode(mode === 'disconnect' ? null : 'disconnect')}>
+        Disconnect account from all rooms
+      </button>
+      {mode === 'disconnect' ? (
+        <div className="danger-confirm">
+          <strong>Disconnect this login?</strong>
+          <p>This unlinks your Auth0 login from every Teamix player profile. It does not delete room history, players, fixtures, or your Auth0 user.</p>
+          <label>
+            Type DELETE to confirm
+            <input value={confirmText} onChange={(event) => setConfirmText(event.target.value)} />
+          </label>
+          <button className="danger-button" type="button" onClick={disconnectAccount} disabled={busy || confirmText !== 'DELETE'}>
+            Disconnect all rooms
+          </button>
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -1266,6 +1762,7 @@ function PlayerRow({
   const gf = player.goalsFor ?? 0
   const ga = player.goalsAgainst ?? 0
   const played = wins + draws + losses
+  const form = player.recentForm ?? []
 
   return (
     <article className={`player-card${expanded ? ' expanded' : ''}`}>
@@ -1277,6 +1774,16 @@ function PlayerRow({
           </div>
           <div className="player-main">
             <strong>{player.name}</strong>
+            {played > 0 ? (
+              <span className="form-bars" aria-hidden="true">
+                {form.map((result, index) => (
+                  <i
+                    key={`${player.id}-${index}`}
+                    className={result === 'W' ? 'wins' : result === 'D' ? 'draws' : 'losses'}
+                  />
+                ))}
+              </span>
+            ) : null}
             {played > 0
               ? <span>{wins}W · {draws}D · {losses}L</span>
               : <span>{player.isAdmin ? 'Room admin' : 'No games yet'}</span>}
@@ -1421,7 +1928,7 @@ function useApi<T>(
           ? await apiFetch<T>(memoPath, getAccessTokenSilently)
           : await fetch(memoPath).then(async (res) => {
             if (!res.ok) throw new Error(await res.text())
-            return res.json() as Promise<T>
+            return parseJsonResponse<T>(res, memoPath)
           })
 
         if (mounted) setData(response)
@@ -1451,6 +1958,21 @@ async function extractErrorMessage(response: Response): Promise<string> {
   }
 }
 
+async function parseJsonResponse<T>(response: Response, path: string): Promise<T> {
+  const contentType = response.headers.get('content-type') ?? ''
+  if (!contentType.includes('application/json')) {
+    const text = await response.text()
+    const looksLikeHtml = text.trimStart().startsWith('<!doctype') || text.trimStart().startsWith('<html')
+    throw new Error(
+      looksLikeHtml
+        ? `API route ${path} returned the app HTML instead of JSON. Use npm run dev so Netlify Functions are available locally.`
+        : `API route ${path} returned ${contentType || 'an unknown content type'} instead of JSON.`,
+    )
+  }
+
+  return response.json() as Promise<T>
+}
+
 async function apiFetch<T>(path: string, getAccessTokenSilently: () => Promise<string>) {
   const token = await getAccessTokenSilently()
   const response = await fetch(path, {
@@ -1463,7 +1985,7 @@ async function apiFetch<T>(path: string, getAccessTokenSilently: () => Promise<s
     throw new Error(await extractErrorMessage(response))
   }
 
-  return response.json() as Promise<T>
+  return parseJsonResponse<T>(response, path)
 }
 
 async function apiSend<T = unknown>(
@@ -1494,7 +2016,7 @@ async function apiRequest<T = unknown>(
   }
 
   if (response.status === 204) return undefined as T
-  return response.json() as Promise<T>
+  return parseJsonResponse<T>(response, path)
 }
 
 function initials(name: string) {
@@ -1512,6 +2034,15 @@ function formatFixtureDate(fixture: Gameweek) {
     day: 'numeric',
     month: 'short',
   })
+}
+
+function getFixtureDateTime(fixture: Gameweek) {
+  const datePart = fixture.date.slice(0, 10)
+  return new Date(`${datePart}T${fixture.startTime ?? '23:59:59'}`)
+}
+
+function isFixturePast(fixture: Gameweek) {
+  return getFixtureDateTime(fixture).getTime() < Date.now()
 }
 
 export default App
