@@ -14,6 +14,7 @@ import {
   Settings,
   Shield,
   Shirt,
+  Trophy,
   Trash2,
   UsersRound,
   X,
@@ -41,6 +42,7 @@ type Player = {
   rating: string
   profilePicture?: string | null
   isAdmin?: boolean
+  favoritePositions?: string[]
   wins?: number
   draws?: number
   losses?: number
@@ -58,7 +60,10 @@ type Gameweek = {
   gameResult?: {
     teamA_score: number
     teamB_score: number
+    createdAt?: string
   } | null
+  votingCloseTime?: string | null
+  playerOfTheMatch?: Array<{ id: number; name: string; votes: number }>
 }
 
 type Sport = {
@@ -70,6 +75,28 @@ type Sport = {
 type ApiState = {
   activeRoom: Room | null
   memberships: Room[]
+}
+
+type RoomMember = {
+  playerId: number
+  name: string
+  profilePicture?: string | null
+  isAdmin: boolean
+  isLinked: boolean
+  favoritePositions?: string[]
+}
+
+type HasVotedResponse = {
+  hasVoted: boolean
+  player_id: number
+  votedPlayerId?: number | null
+}
+
+type RatingSummary = {
+  playerId: number
+  playerName: string
+  avgRating: number
+  ratings: Array<{ id: number; date: string; rating: string | number; raterId: number | null }>
 }
 
 const auth0Domain = import.meta.env.VITE_AUTH0_DOMAIN
@@ -743,6 +770,7 @@ function DeletePlayerConfirm({ player, onDeleted, onCancel }: { player: Player; 
 type FixtureDetail = {
   availability?: Array<{ playerId: number; status: boolean | null; Player: Player }>
   assignments?: Array<{ id: number; team: string; Player: Player }>
+  hasVoted?: HasVotedResponse
 }
 
 function FixturesView({ room }: { room: Room }) {
@@ -890,11 +918,12 @@ function FixtureCard({
       setLoading(true)
       setError(null)
       try {
-        const [availability, assignments] = await Promise.all([
+        const [availability, assignments, hasVoted] = await Promise.all([
           apiFetch<Array<{ playerId: number; status: boolean | null; Player: Player }>>(`/api/availability?gameweekId=${fixture.id}`, getAccessTokenSilently),
           apiFetch<Array<{ id: number; team: string; Player: Player }>>(`/api/teamassignments?gameweekId=${fixture.id}`, getAccessTokenSilently),
+          apiFetch<HasVotedResponse>(`/api/has-voted?gameweekId=${fixture.id}`, getAccessTokenSilently),
         ])
-        if (mounted) setDetail({ availability, assignments })
+        if (mounted) setDetail({ availability, assignments, hasVoted })
       } catch (caughtError) {
         if (mounted) setError(caughtError instanceof Error ? caughtError.message : 'Could not load fixture')
       } finally {
@@ -953,6 +982,19 @@ function FixtureCard({
     }
   }
 
+  async function castVote(playerId: number) {
+    setError(null)
+    try {
+      await apiSend('/api/votes', getAccessTokenSilently, {
+        gameweekId: fixture.id,
+        votedPlayerId: playerId,
+      })
+      setDetailKey((key) => key + 1)
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Could not cast vote')
+    }
+  }
+
   const isPast = isFixturePast(fixture)
   const available = detail.availability?.filter((row) => row.status === true) ?? []
   const unavailable = detail.availability?.filter((row) => row.status === false) ?? []
@@ -960,6 +1002,10 @@ function FixtureCard({
   const myAvailability = detail.availability?.find((row) => row.playerId === room.playerId)?.status ?? null
   const teamAPlayers = detail.assignments?.filter((item) => item.team === 'A').map((item) => item.Player) ?? []
   const teamBPlayers = detail.assignments?.filter((item) => item.team === 'B').map((item) => item.Player) ?? []
+  const assignedPlayerIds = new Set(detail.assignments?.map((item) => item.Player.id) ?? [])
+  const votingClosesAt = fixture.votingCloseTime ? new Date(fixture.votingCloseTime).getTime() : null
+  const votingOpen = Boolean(gameResult && votingClosesAt && Date.now() <= votingClosesAt)
+  const canVote = votingOpen && assignedPlayerIds.has(room.playerId) && detail.hasVoted?.hasVoted === false
 
   return (
     <article className={`fixture-card ${expanded ? 'expanded' : ''}`}>
@@ -1008,6 +1054,24 @@ function FixtureCard({
           ) : (
             detail.availability ? <p className="muted-note">{isPast ? 'Teams were not recorded for this fixture.' : 'Draft teams will update as availability changes.'}</p> : null
           )}
+
+          {gameResult ? (
+            <MatchAwards
+              playerOfTheMatch={fixture.playerOfTheMatch ?? []}
+              votingCloseTime={fixture.votingCloseTime ?? null}
+            />
+          ) : null}
+
+          {canVote ? (
+            <VotePanel
+              players={[...teamAPlayers, ...teamBPlayers].filter((player) => player.id !== room.playerId)}
+              onVote={castVote}
+            />
+          ) : null}
+
+          {gameResult && detail.hasVoted?.hasVoted ? (
+            <p className="muted-note">Your player-of-the-match vote has been recorded.</p>
+          ) : null}
 
           {!isPast && room.isAdmin && detail.availability ? (
             <AdminAvailabilityPanel
@@ -1088,6 +1152,61 @@ function TeamList({ title, color, players }: { title: string; color: string; pla
     <div className="team-list" style={{ borderColor: color }}>
       <strong>{title}</strong>
       {players.map((player) => <span key={player.id}>{player.name}</span>)}
+    </div>
+  )
+}
+
+function MatchAwards({
+  playerOfTheMatch,
+  votingCloseTime,
+}: {
+  playerOfTheMatch: Array<{ id: number; name: string; votes: number }>
+  votingCloseTime: string | null
+}) {
+  const votingClosed = votingCloseTime ? Date.now() > new Date(votingCloseTime).getTime() : true
+
+  return (
+    <div className="awards-panel">
+      <div>
+        <Trophy size={17} />
+        <strong>Player of the match</strong>
+      </div>
+      {playerOfTheMatch.length > 0 ? (
+        <p>{playerOfTheMatch.map((player) => `${player.name} (${player.votes})`).join(', ')}</p>
+      ) : (
+        <p>No votes yet.</p>
+      )}
+      {votingCloseTime ? (
+        <span>{votingClosed ? 'Voting closed' : `Voting closes ${new Date(votingCloseTime).toLocaleString()}`}</span>
+      ) : null}
+    </div>
+  )
+}
+
+function VotePanel({ players, onVote }: { players: Player[]; onVote: (playerId: number) => void }) {
+  const [selectedPlayerId, setSelectedPlayerId] = useState<number | ''>('')
+
+  return (
+    <div className="vote-panel">
+      <strong>Vote for player of the match</strong>
+      {players.length > 0 ? (
+        <div>
+          <select value={selectedPlayerId} onChange={(event) => setSelectedPlayerId(Number(event.target.value))}>
+            <option value="">Choose a player</option>
+            {players
+              .slice()
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((player) => (
+                <option key={player.id} value={player.id}>{player.name}</option>
+              ))}
+          </select>
+          <button type="button" disabled={!selectedPlayerId} onClick={() => selectedPlayerId && onVote(Number(selectedPlayerId))}>
+            Vote
+          </button>
+        </div>
+      ) : (
+        <p className="muted-note">No eligible players available.</p>
+      )}
     </div>
   )
 }
@@ -1265,6 +1384,7 @@ function AccountView({
 }) {
   const { getAccessTokenSilently, user } = useAuth0()
   const { data: sports } = useApi<Sport[]>('/api/sports', getAccessTokenSilently, false)
+  const { data: currentPlayer } = useApi<Player>('/api/current-player', getAccessTokenSilently)
   const [roomName, setRoomName] = useState(room.name)
   const [sportId, setSportId] = useState<number | ''>(room.sportId ?? '')
   const [teamAColor, setTeamAColor] = useState(room.teamAColor ?? '#28d17c')
@@ -1325,6 +1445,13 @@ function AccountView({
         onRoomChanged={onRoomChanged}
       />
 
+      {currentPlayer && sports ? (
+        <FavoritePositionsPanel
+          positions={sports.find((sport) => sport.id === room.sportId)?.positions ?? []}
+          currentPositions={currentPlayer.favoritePositions ?? []}
+        />
+      ) : null}
+
       {room.isAdmin ? (
         <div className="collapsible-panel">
           <button className="advanced-toggle" type="button" onClick={() => setShowRoomEdit((value) => !value)}>
@@ -1362,6 +1489,7 @@ function AccountView({
               </button>
             </div>
           ) : null}
+          {showRoomEdit ? <RoomMembersPanel room={room} onRoomChanged={onRoomChanged} /> : null}
         </div>
       ) : null}
 
@@ -1376,6 +1504,121 @@ function AccountView({
         Sign out
       </button>
     </section>
+  )
+}
+
+function FavoritePositionsPanel({
+  positions,
+  currentPositions,
+}: {
+  positions: string[]
+  currentPositions: string[]
+}) {
+  const { getAccessTokenSilently } = useAuth0()
+  const [selected, setSelected] = useState<string[]>(currentPositions)
+  const [message, setMessage] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setSelected(currentPositions)
+  }, [currentPositions])
+
+  function togglePosition(position: string) {
+    setMessage(null)
+    setSelected((current) => {
+      if (current.includes(position)) return current.filter((item) => item !== position)
+      return current.length >= 3 ? current : [...current, position]
+    })
+  }
+
+  async function save() {
+    setSaving(true)
+    setMessage(null)
+    try {
+      await apiRequest('/api/favorite-positions', getAccessTokenSilently, {
+        method: 'PUT',
+        body: { favoritePositions: selected },
+      })
+      setMessage('Favorite positions saved.')
+    } catch (caughtError) {
+      setMessage(caughtError instanceof Error ? caughtError.message : 'Could not save positions')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="form-panel wide embedded positions-panel">
+      <h2>Favorite positions</h2>
+      {message ? <p className="muted-note">{message}</p> : null}
+      {positions.length > 0 ? (
+        <div className="position-grid">
+          {positions.map((position) => (
+            <button
+              key={position}
+              type="button"
+              className={selected.includes(position) ? 'active' : ''}
+              onClick={() => togglePosition(position)}
+            >
+              {position}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="muted-note">This sport has no configured positions.</p>
+      )}
+      <button className="primary-action compact" type="button" onClick={save} disabled={saving}>
+        Save positions
+      </button>
+    </div>
+  )
+}
+
+function RoomMembersPanel({ room, onRoomChanged }: { room: Room; onRoomChanged: () => void }) {
+  const { getAccessTokenSilently } = useAuth0()
+  const [reloadKey, setReloadKey] = useState(0)
+  const { data, error } = useApi<{ members: RoomMember[] }>(`/api/rooms/${room.roomId}/members?refresh=${reloadKey}`, getAccessTokenSilently)
+  const [busyPlayerId, setBusyPlayerId] = useState<number | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+
+  async function promote(playerId: number) {
+    setBusyPlayerId(playerId)
+    setMessage(null)
+    try {
+      await apiSend(`/api/rooms/${room.roomId}/members/${playerId}/admin`, getAccessTokenSilently, {})
+      setMessage('Member promoted to admin.')
+      setReloadKey((key) => key + 1)
+      onRoomChanged()
+    } catch (caughtError) {
+      setMessage(caughtError instanceof Error ? caughtError.message : 'Could not promote member')
+    } finally {
+      setBusyPlayerId(null)
+    }
+  }
+
+  return (
+    <div className="form-panel wide embedded members-panel">
+      <h2>Members</h2>
+      {error ? <InlineError message={error} /> : null}
+      {message ? <p className="muted-note">{message}</p> : null}
+      {data?.members.map((member) => (
+        <div className="member-row" key={member.playerId}>
+          <div>
+            <strong>{member.name}</strong>
+            <span>
+              {member.isAdmin ? 'Admin' : 'Player'} {member.isLinked ? ' - linked' : ' - unlinked'}
+              {member.favoritePositions?.length ? ` - ${member.favoritePositions.join(', ')}` : ''}
+            </span>
+          </div>
+          {!member.isAdmin ? (
+            <button type="button" onClick={() => promote(member.playerId)} disabled={busyPlayerId === member.playerId}>
+              Make admin
+            </button>
+          ) : null}
+        </div>
+      ))}
+      {!data && !error ? <SkeletonList /> : null}
+    </div>
   )
 }
 
@@ -1809,9 +2052,35 @@ function PlayerRow({
             <div><span>Goals/game</span><strong>{played > 0 ? (gf / played).toFixed(1) : '—'}</strong></div>
             <div><span>Rating</span><strong>{Math.round(Number(player.rating))}</strong></div>
           </div>
+          <PlayerRatingHistory playerId={player.id} />
         </div>
       ) : null}
     </article>
+  )
+}
+
+function PlayerRatingHistory({ playerId }: { playerId: number }) {
+  const { getAccessTokenSilently } = useAuth0()
+  const { data, error } = useApi<RatingSummary[]>(`/api/ratings?playerId=${playerId}`, getAccessTokenSilently)
+  const ratings = data?.[0]?.ratings?.slice(0, 5) ?? []
+
+  return (
+    <div className="rating-history">
+      <strong>Rating history</strong>
+      {error ? <InlineError message={error} /> : null}
+      {ratings.length > 0 ? (
+        <div className="rating-history-list">
+          {ratings.map((rating) => (
+            <span key={rating.id}>
+              {new Date(rating.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
+              <strong>{Number(rating.rating).toFixed(1)}</strong>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="muted-note">No rating records yet.</p>
+      )}
+    </div>
   )
 }
 

@@ -373,6 +373,24 @@ export const handler: Handler = async (event) => {
       return json({ members })
     }
 
+    const roomMemberAdminMatch = route.match(/^\/rooms\/(\d+)\/members\/(\d+)\/admin$/)
+    if (roomMemberAdminMatch && method === 'POST') {
+      const roomId = Number(roomMemberAdminMatch[1])
+      const playerId = Number(roomMemberAdminMatch[2])
+      if (!isActiveRoom(auth, roomId)) return json({ error: 'Switch to this room before managing members.' }, 403)
+      if (!auth.isAdmin) return json({ error: 'Admin privileges required.' }, 403)
+
+      const [member] = await db.sql`
+        UPDATE public."RoomMemberships"
+        SET "isAdmin" = true, "updatedAt" = NOW()
+        WHERE "roomId" = ${roomId}
+          AND "playerId" = ${playerId}
+          AND "isMember" = true
+        RETURNING "playerId", "roomId", "isAdmin"
+      `
+      return member ? json({ success: true, member }) : json({ error: 'Member not found' }, 404)
+    }
+
     if (method === 'GET' && route === '/current-player') {
       const [player] = await db.sql`
         SELECT p.id, p.name, p.rating, p."profilePicture",
@@ -382,6 +400,24 @@ export const handler: Handler = async (event) => {
         WHERE p.id = ${active.playerId}
       `
       return player ? json(player) : json({ error: 'Player not found' }, 404)
+    }
+
+    if (method === 'PUT' && route === '/favorite-positions') {
+      const body = parseBody<{ favoritePositions?: string[] }>(event)
+      const favoritePositions = Array.isArray(body.favoritePositions)
+        ? body.favoritePositions.map((position) => String(position).trim()).filter(Boolean).slice(0, 3)
+        : null
+      if (!favoritePositions) return json({ error: 'favoritePositions must be an array.' }, 400)
+
+      const [membership] = await db.sql`
+        UPDATE public."RoomMemberships"
+        SET "favoritePositions" = ${favoritePositions}::text[], "updatedAt" = NOW()
+        WHERE "roomId" = ${active.roomId}
+          AND "playerId" = ${active.playerId}
+          AND "isMember" = true
+        RETURNING "favoritePositions"
+      `
+      return membership ? json({ favoritePositions: membership.favoritePositions }) : json({ error: 'Membership not found' }, 404)
     }
 
     if (method === 'GET' && route === '/players') {
@@ -479,6 +515,21 @@ export const handler: Handler = async (event) => {
     }
 
     const playerMatch = route.match(/^\/players\/(\d+)$/)
+    const playerLinkMatch = route.match(/^\/players\/(\d+)\/link$/)
+    if (playerLinkMatch && method === 'PUT') {
+      const playerId = Number(playerLinkMatch[1])
+      const [linked] = await db.sql`
+        UPDATE public."RoomMemberships"
+        SET "auth0Id" = ${auth.sub}, "isActive" = true, "updatedAt" = NOW()
+        WHERE "roomId" = ${active.roomId}
+          AND "playerId" = ${playerId}
+          AND "isMember" = true
+          AND ("auth0Id" IS NULL OR "auth0Id" = ${auth.sub})
+        RETURNING "playerId", "roomId", "isActive", "isAdmin"
+      `
+      return linked ? json({ success: true, membership: linked }) : json({ error: 'Player profile is not available to link' }, 409)
+    }
+
     if (playerMatch && method === 'PUT') {
       const body = parseBody<{ name?: string; rating?: number; profilePicture?: string | null }>(event)
       const playerId = Number(playerMatch[1])
@@ -498,6 +549,53 @@ export const handler: Handler = async (event) => {
       return player ? json(player) : json({ error: 'Player not found' }, 404)
     }
 
+    if (method === 'POST' && route === '/ratings') {
+      const body = parseBody<{ date?: string; ratings?: Array<{ playerId?: number; rating?: number; raterId?: number | null }> }>(event)
+      if (!body.date || !Array.isArray(body.ratings)) return json({ error: 'date and ratings are required' }, 400)
+
+      const created = []
+      for (const rating of body.ratings) {
+        if (!rating.playerId || !Number.isFinite(rating.rating)) return json({ error: 'Each rating needs playerId and rating' }, 400)
+        const [member] = await db.sql`
+          SELECT "playerId"
+          FROM public."RoomMemberships"
+          WHERE "roomId" = ${active.roomId}
+            AND "playerId" = ${rating.playerId}
+            AND "isMember" = true
+        `
+        if (!member) return json({ error: `Player not found: ${rating.playerId}` }, 404)
+
+        const [record] = await db.sql`
+          INSERT INTO public."Ratings" ("playerId", date, rating, "raterId", "roomId", "createdAt", "updatedAt")
+          VALUES (${rating.playerId}, ${body.date}, ${rating.rating}, ${rating.raterId ?? active.playerId ?? null}, ${active.roomId}, NOW(), NOW())
+          RETURNING id, "playerId", date, rating, "raterId", "roomId"
+        `
+        created.push(record)
+      }
+      return json(created, 201)
+    }
+
+    if (method === 'GET' && route === '/ratings') {
+      const date = event.queryStringParameters?.date
+      const playerId = event.queryStringParameters?.playerId ? Number(event.queryStringParameters.playerId) : null
+      const ratings = await db.sql`
+        SELECT r."playerId", p.name AS "playerName", AVG(r.rating)::float AS "avgRating",
+               json_agg(json_build_object('id', r.id, 'date', r.date, 'rating', r.rating, 'raterId', r."raterId") ORDER BY r.date DESC, r.id DESC) AS ratings
+        FROM public."Ratings" r
+        JOIN public."Players" p ON p.id = r."playerId"
+        JOIN public."RoomMemberships" rm
+          ON rm."playerId" = r."playerId"
+         AND rm."roomId" = r."roomId"
+         AND rm."isMember" = true
+        WHERE r."roomId" = ${active.roomId}
+          AND (${date ?? null}::date IS NULL OR r.date = ${date ?? null})
+          AND (${playerId ?? null}::int IS NULL OR r."playerId" = ${playerId ?? null})
+        GROUP BY r."playerId", p.name
+        ORDER BY p.name ASC
+      `
+      return json(ratings)
+    }
+
     if (playerMatch && method === 'DELETE') {
       const playerId = Number(playerMatch[1])
       await db.sql`
@@ -511,10 +609,24 @@ export const handler: Handler = async (event) => {
     if (method === 'GET' && route === '/gameweeks') {
       const gameweeks = await db.sql`
         SELECT gw.id, gw.date, gw.location, gw."startTime", gw."maxPlayers",
-               gr."teamA_score", gr."teamB_score", gr."createdAt" AS "resultCreatedAt"
+               gr."teamA_score", gr."teamB_score", gr."createdAt" AS "resultCreatedAt",
+               COALESCE(potm."playerOfTheMatch", '[]'::json) AS "playerOfTheMatch"
         FROM public."Gameweeks" gw
         LEFT JOIN public."GameResults" gr
           ON gr."gameweekId" = gw.id AND gr."roomId" = gw."roomId"
+        LEFT JOIN LATERAL (
+          SELECT json_agg(json_build_object('id', ranked."playerId", 'name', p.name, 'votes', ranked.vote_count) ORDER BY p.name) AS "playerOfTheMatch"
+          FROM (
+            SELECT v."voted_player_id" AS "playerId", COUNT(*)::int AS vote_count,
+                   DENSE_RANK() OVER (ORDER BY COUNT(*) DESC) AS vote_rank
+            FROM public."Votes" v
+            WHERE v."gameweek_id" = gw.id
+              AND v."roomId" = gw."roomId"
+            GROUP BY v."voted_player_id"
+          ) ranked
+          JOIN public."Players" p ON p.id = ranked."playerId"
+          WHERE ranked.vote_rank = 1
+        ) potm ON true
         WHERE gw."roomId" = ${active.roomId}
         ORDER BY gw.date DESC
       `
@@ -537,10 +649,24 @@ export const handler: Handler = async (event) => {
     if (gameweekMatch && method === 'GET') {
       const [gameweek] = await db.sql`
         SELECT gw.id, gw.date, gw.location, gw."startTime", gw."maxPlayers",
-               gr."teamA_score", gr."teamB_score", gr."createdAt" AS "resultCreatedAt"
+               gr."teamA_score", gr."teamB_score", gr."createdAt" AS "resultCreatedAt",
+               COALESCE(potm."playerOfTheMatch", '[]'::json) AS "playerOfTheMatch"
         FROM public."Gameweeks" gw
         LEFT JOIN public."GameResults" gr
           ON gr."gameweekId" = gw.id AND gr."roomId" = gw."roomId"
+        LEFT JOIN LATERAL (
+          SELECT json_agg(json_build_object('id', ranked."playerId", 'name', p.name, 'votes', ranked.vote_count) ORDER BY p.name) AS "playerOfTheMatch"
+          FROM (
+            SELECT v."voted_player_id" AS "playerId", COUNT(*)::int AS vote_count,
+                   DENSE_RANK() OVER (ORDER BY COUNT(*) DESC) AS vote_rank
+            FROM public."Votes" v
+            WHERE v."gameweek_id" = gw.id
+              AND v."roomId" = gw."roomId"
+            GROUP BY v."voted_player_id"
+          ) ranked
+          JOIN public."Players" p ON p.id = ranked."playerId"
+          WHERE ranked.vote_rank = 1
+        ) potm ON true
         WHERE gw.id = ${Number(gameweekMatch[1])}
           AND gw."roomId" = ${active.roomId}
       `
@@ -748,7 +874,91 @@ export const handler: Handler = async (event) => {
           "updatedAt" = NOW()
         RETURNING id, "gameweekId", "teamA_score", "teamB_score", "teamA_player_count", "teamB_player_count"
       `
+      await updatePlayerRatings(body.gameweekId, active.roomId)
+      await awardAchievementsForGameweek(body.gameweekId, active.roomId, body.teamA_score, body.teamB_score)
       return json(result)
+    }
+
+    if (method === 'GET' && route === '/gameresults') {
+      const gameResults = await db.sql`
+        SELECT gr.id, gr."gameweekId", gr."teamA_score", gr."teamB_score",
+               gr."teamA_player_count", gr."teamB_player_count", gr."createdAt",
+               gw.date, gw.location, gw."startTime"
+        FROM public."GameResults" gr
+        JOIN public."Gameweeks" gw
+          ON gw.id = gr."gameweekId"
+         AND gw."roomId" = gr."roomId"
+        WHERE gr."roomId" = ${active.roomId}
+        ORDER BY gw.date DESC, gr."createdAt" DESC
+      `
+      return json(gameResults)
+    }
+
+    if (method === 'POST' && route === '/votes') {
+      const body = parseBody<{ gameweekId?: number; votedPlayerId?: number }>(event)
+      if (!body.gameweekId || !body.votedPlayerId) return json({ error: 'gameweekId and votedPlayerId are required' }, 400)
+      if (body.votedPlayerId === active.playerId) return json({ error: 'You cannot vote for yourself.' }, 403)
+
+      const [gameResult] = await db.sql<{ createdAt: string }>`
+        SELECT "createdAt"
+        FROM public."GameResults"
+        WHERE "gameweekId" = ${body.gameweekId}
+          AND "roomId" = ${active.roomId}
+      `
+      if (!gameResult) return json({ error: 'Voting opens after the result is recorded.' }, 400)
+      if (Date.now() > new Date(gameResult.createdAt).getTime() + 48 * 60 * 60 * 1000) {
+        return json({ error: 'Voting has closed for this fixture.' }, 403)
+      }
+
+      const [voterAssignment] = await db.sql`
+        SELECT id
+        FROM public."TeamAssignments"
+        WHERE "gameweekId" = ${body.gameweekId}
+          AND "roomId" = ${active.roomId}
+          AND "playerId" = ${active.playerId}
+          AND team IN ('A', 'B')
+      `
+      if (!voterAssignment) return json({ error: 'You did not play in this fixture and cannot vote.' }, 403)
+
+      const [candidateAssignment] = await db.sql`
+        SELECT id
+        FROM public."TeamAssignments"
+        WHERE "gameweekId" = ${body.gameweekId}
+          AND "roomId" = ${active.roomId}
+          AND "playerId" = ${body.votedPlayerId}
+          AND team IN ('A', 'B')
+      `
+      if (!candidateAssignment) return json({ error: 'That player did not play in this fixture.' }, 400)
+
+      const [existing] = await db.sql`
+        SELECT id
+        FROM public."Votes"
+        WHERE "gameweek_id" = ${body.gameweekId}
+          AND "roomId" = ${active.roomId}
+          AND "voting_player_id" = ${active.playerId}
+      `
+      if (existing) return json({ error: 'You have already voted in this fixture.' }, 403)
+
+      const [vote] = await db.sql`
+        INSERT INTO public."Votes" ("gameweek_id", "voting_player_id", "voted_player_id", "voted_at", "roomId")
+        VALUES (${body.gameweekId}, ${active.playerId}, ${body.votedPlayerId}, NOW(), ${active.roomId})
+        RETURNING id, "gameweek_id", "voting_player_id", "voted_player_id", "voted_at"
+      `
+      return json({ message: 'Vote cast successfully.', vote }, 201)
+    }
+
+    if (method === 'GET' && route === '/has-voted') {
+      const gameweekId = Number(event.queryStringParameters?.gameweekId)
+      if (!gameweekId) return json({ error: 'gameweekId is required' }, 400)
+
+      const [vote] = await db.sql`
+        SELECT id, "voted_player_id"
+        FROM public."Votes"
+        WHERE "gameweek_id" = ${gameweekId}
+          AND "roomId" = ${active.roomId}
+          AND "voting_player_id" = ${active.playerId}
+      `
+      return json({ hasVoted: Boolean(vote), player_id: active.playerId, votedPlayerId: vote?.voted_player_id ?? null })
     }
 
     if (method === 'GET' && route === '/player-achievements') {
@@ -770,11 +980,7 @@ export const handler: Handler = async (event) => {
     const legacyNotYetPorted = [
       '/pick-teams',
       '/teamassignments',
-      '/ratings',
-      '/votes',
-      '/has-voted',
       '/fcm-token',
-      '/favorite-positions',
     ]
 
     if (legacyNotYetPorted.includes(route)) {
@@ -1188,6 +1394,216 @@ async function buildPairSynergyMap({
   return pairSynergyMap
 }
 
+async function updatePlayerRatings(gameweekId: number, roomId: number) {
+  const [result] = await db.sql<{
+    teamA_score: number
+    teamB_score: number
+    teamA_player_count: number
+    teamB_player_count: number
+    date: string
+  }>`
+    SELECT gr."teamA_score", gr."teamB_score", gr."teamA_player_count", gr."teamB_player_count", gw.date
+    FROM public."GameResults" gr
+    JOIN public."Gameweeks" gw
+      ON gw.id = gr."gameweekId"
+     AND gw."roomId" = gr."roomId"
+    WHERE gr."gameweekId" = ${gameweekId}
+      AND gr."roomId" = ${roomId}
+  `
+  if (!result) return
+
+  const assignments = await db.sql<{ playerId: number; team: string }>`
+    SELECT "playerId", team
+    FROM public."TeamAssignments"
+    WHERE "gameweekId" = ${gameweekId}
+      AND "roomId" = ${roomId}
+      AND team IN ('A', 'B')
+  `
+
+  for (const assignment of assignments) {
+    let points = 0
+    const teamAPlayers = Number(result.teamA_player_count || 0)
+    const teamBPlayers = Number(result.teamB_player_count || 0)
+    const isHandicappedWin = teamAPlayers !== teamBPlayers
+    const winPoints = isHandicappedWin
+      ? assignment.team === 'A' && teamAPlayers > teamBPlayers
+        ? 2
+        : assignment.team === 'B' && teamBPlayers > teamAPlayers
+          ? 2
+          : 4
+      : 3
+
+    if (
+      (assignment.team === 'A' && result.teamA_score > result.teamB_score) ||
+      (assignment.team === 'B' && result.teamB_score > result.teamA_score)
+    ) {
+      points += winPoints
+    } else if (result.teamA_score === result.teamB_score) {
+      points += 1
+    }
+
+    if (assignment.team === 'A') {
+      points += result.teamA_score * (teamAPlayers > teamBPlayers ? 0.1 : 0.2)
+      if (teamAPlayers <= teamBPlayers) points -= result.teamB_score * 0.1
+    } else {
+      points += result.teamB_score * (teamBPlayers > teamAPlayers ? 0.1 : 0.2)
+      if (teamBPlayers <= teamAPlayers) points -= result.teamA_score * 0.1
+    }
+
+    await db.sql`
+      INSERT INTO public."Ratings" ("playerId", date, rating, "raterId", "roomId", "createdAt", "updatedAt")
+      VALUES (${assignment.playerId}, ${result.date}, ${Number(points.toFixed(2))}, NULL, ${roomId}, NOW(), NOW())
+    `
+
+    const recentRatings = await db.sql<{ rating: string | number }>`
+      SELECT rating
+      FROM public."Ratings"
+      WHERE "playerId" = ${assignment.playerId}
+        AND "roomId" = ${roomId}
+      ORDER BY date DESC, id DESC
+      LIMIT 5
+    `
+    const totalPoints = recentRatings.reduce((total, row) => total + Number(row.rating || 0), 0)
+    await db.sql`
+      UPDATE public."Players"
+      SET rating = ${Number(totalPoints.toFixed(2))}, "updatedAt" = NOW()
+      WHERE id = ${assignment.playerId}
+    `
+  }
+}
+
+async function awardAchievementsForGameweek(gameweekId: number, roomId: number, teamA_score: number, teamB_score: number) {
+  const assignments = await db.sql<{ playerId: number; team: string }>`
+    SELECT "playerId", team
+    FROM public."TeamAssignments"
+    WHERE "gameweekId" = ${gameweekId}
+      AND "roomId" = ${roomId}
+      AND team IN ('A', 'B')
+  `
+
+  for (const assignment of assignments) {
+    const eligibleIds = await getEligibleAchievementIds({
+      playerId: assignment.playerId,
+      roomId,
+      gameweekId,
+      team: assignment.team,
+      teamA_score,
+      teamB_score,
+    })
+
+    for (const achievementId of eligibleIds) {
+      await db.sql`
+        INSERT INTO public."PlayerAchievements" ("playerId", "achievementId", "roomId", "earnedAt", "createdAt", "updatedAt")
+        VALUES (${assignment.playerId}, ${achievementId}, ${roomId}, NOW(), NOW(), NOW())
+        ON CONFLICT ("playerId", "achievementId") DO NOTHING
+      `
+    }
+  }
+}
+
+async function getEligibleAchievementIds({
+  playerId,
+  roomId,
+  gameweekId,
+  team,
+  teamA_score,
+  teamB_score,
+}: {
+  playerId: number
+  roomId: number
+  gameweekId: number
+  team: string
+  teamA_score: number
+  teamB_score: number
+}) {
+  const recent = await getPlayerResultHistory(playerId, roomId, 100)
+  const currentWin = didTeamWin(team, teamA_score, teamB_score)
+  const currentLoss = didTeamLose(team, teamA_score, teamB_score)
+  const teamGoals = team === 'A' ? teamA_score : teamB_score
+  const conceded = team === 'A' ? teamB_score : teamA_score
+  const ids: number[] = []
+
+  if (recent.slice(0, 3).length >= 3 && recent.slice(0, 3).every((row) => row.outcome === 'W')) ids.push(1)
+  if (recent.filter((row) => row.outcome === 'D').length >= 5) ids.push(2)
+  if (recent.length >= 10) ids.push(3)
+  if (recent.slice(0, 5).length >= 5 && recent.slice(0, 5).every((row) => row.outcome !== 'L')) ids.push(4)
+  if (await hasLongTimeTeammate(playerId, roomId, gameweekId)) ids.push(5)
+  if (recent.length >= 50) ids.push(8)
+  if (recent.length >= 100) ids.push(9)
+  if (recent.filter((row) => row.outcome === 'W').length >= 10) ids.push(10)
+  if (currentWin && Math.abs(teamA_score - teamB_score) >= 5) ids.push(11)
+  if (recent.filter((row) => row.outcome === 'L').length >= 5) ids.push(12)
+  if (currentLoss && Math.abs(teamA_score - teamB_score) === 1) ids.push(13)
+  if (currentWin && recent[1]?.outcome === 'L') ids.push(14)
+  if (teamGoals >= 10) ids.push(15)
+  if (conceded === 0) ids.push(16)
+  if (teamA_score >= 5 && teamB_score >= 5) ids.push(17)
+
+  return ids
+}
+
+async function getPlayerResultHistory(playerId: number, roomId: number, limit: number) {
+  return db.sql<{ gameweekId: number; team: string; outcome: 'W' | 'D' | 'L' }>`
+    SELECT gw.id AS "gameweekId", ta.team,
+           CASE
+             WHEN gr."teamA_score" = gr."teamB_score" THEN 'D'
+             WHEN (ta.team = 'A' AND gr."teamA_score" > gr."teamB_score")
+               OR (ta.team = 'B' AND gr."teamB_score" > gr."teamA_score") THEN 'W'
+             ELSE 'L'
+           END AS outcome
+    FROM public."TeamAssignments" ta
+    JOIN public."GameResults" gr
+      ON gr."gameweekId" = ta."gameweekId" AND gr."roomId" = ta."roomId"
+    JOIN public."Gameweeks" gw
+      ON gw.id = ta."gameweekId" AND gw."roomId" = ta."roomId"
+    WHERE ta."roomId" = ${roomId}
+      AND ta."playerId" = ${playerId}
+      AND ta.team IN ('A', 'B')
+    ORDER BY gr."createdAt" DESC, gw.date DESC, gw.id DESC
+    LIMIT ${limit}
+  `
+}
+
+async function hasLongTimeTeammate(playerId: number, roomId: number, gameweekId: number) {
+  const recentGames = await db.sql<{ gameweekId: number; team: string }>`
+    SELECT ta."gameweekId", ta.team
+    FROM public."TeamAssignments" ta
+    JOIN public."GameResults" gr
+      ON gr."gameweekId" = ta."gameweekId" AND gr."roomId" = ta."roomId"
+    WHERE ta."roomId" = ${roomId}
+      AND ta."playerId" = ${playerId}
+      AND ta.team IN ('A', 'B')
+    ORDER BY CASE WHEN ta."gameweekId" = ${gameweekId} THEN 0 ELSE 1 END, gr."createdAt" DESC
+    LIMIT 5
+  `
+  if (recentGames.length < 5) return false
+
+  const gameIds = recentGames.map((game) => Number(game.gameweekId))
+  const teamByGame = new Map(recentGames.map((game) => [Number(game.gameweekId), game.team]))
+  const teammateRows = await db.sql<{ playerId: number; gameweekId: number; team: string }>`
+    SELECT ta."playerId", ta."gameweekId", ta.team
+    FROM public."TeamAssignments" ta
+    WHERE ta."roomId" = ${roomId}
+      AND ta."playerId" <> ${playerId}
+      AND ta."gameweekId" = ANY(${gameIds}::int[])
+      AND ta.team IN ('A', 'B')
+  `
+  const teammateCounts = new Map<number, number>()
+  for (const row of teammateRows) {
+    if (teamByGame.get(Number(row.gameweekId)) !== row.team) continue
+    teammateCounts.set(Number(row.playerId), (teammateCounts.get(Number(row.playerId)) ?? 0) + 1)
+  }
+  return [...teammateCounts.values()].some((count) => count >= 5)
+}
+
+function didTeamWin(team: string, teamA_score: number, teamB_score: number) {
+  return (team === 'A' && teamA_score > teamB_score) || (team === 'B' && teamB_score > teamA_score)
+}
+
+function didTeamLose(team: string, teamA_score: number, teamB_score: number) {
+  return (team === 'A' && teamA_score < teamB_score) || (team === 'B' && teamB_score < teamA_score)
+}
+
 function getRoute(event: HandlerEvent) {
   const rawPath = event.path
     .replace(/^\/\.netlify\/functions\/api/, '')
@@ -1224,6 +1640,7 @@ function formatGameweek(gameweek: Record<string, unknown>) {
     votingCloseTime: resultCreatedAt
       ? new Date(new Date(String(resultCreatedAt)).getTime() + 48 * 60 * 60 * 1000).toISOString()
       : null,
+    playerOfTheMatch: Array.isArray(gameweek.playerOfTheMatch) ? gameweek.playerOfTheMatch : [],
   }
 }
 
