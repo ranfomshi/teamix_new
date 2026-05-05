@@ -20,10 +20,13 @@
     "vite": "^8.0.10"
   },
   "dependencies": {
+    "@auth0/auth0-react": "^2.16.2",
     "@netlify/database": "^1.0.0",
     "@netlify/functions": "^5.2.0",
     "jose": "^6.2.3",
+    "lucide-react": "^1.14.0",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "react-router-dom": "^7.14.2"
   }
 }
