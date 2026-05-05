@@ -3,6 +3,11 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
 [dev]
   command = "npm run dev"
   port = 8888
