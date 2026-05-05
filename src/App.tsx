@@ -1,6 +1,7 @@
 import { Auth0Provider, useAuth0 } from '@auth0/auth0-react'
 import {
   Activity,
+  ArrowDownUp,
   CalendarDays,
   ChevronRight,
   ChevronDown,
@@ -9,6 +10,7 @@ import {
   LogOut,
   Pencil,
   Plus,
+  Search,
   Settings,
   Shield,
   Shirt,
@@ -418,6 +420,40 @@ function TopBar({ room, userName }: { room: Room; userName: string }) {
   )
 }
 
+type SortKey = 'wins' | 'draws' | 'losses' | 'played' | 'goalsFor' | 'goalsAgainst' | 'goalDiff' | 'rating' | 'name'
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'wins', label: 'Wins' },
+  { value: 'draws', label: 'Draws' },
+  { value: 'losses', label: 'Losses' },
+  { value: 'played', label: 'Games played' },
+  { value: 'goalsFor', label: 'Goals for' },
+  { value: 'goalsAgainst', label: 'Goals against' },
+  { value: 'goalDiff', label: 'Goal difference' },
+  { value: 'rating', label: 'Rating' },
+  { value: 'name', label: 'Name (A–Z)' },
+]
+
+function sortPlayers(players: Player[], by: SortKey, dir: 'asc' | 'desc'): Player[] {
+  return [...players].sort((a, b) => {
+    const gd = (p: Player) => (p.goalsFor ?? 0) - (p.goalsAgainst ?? 0)
+    const played = (p: Player) => (p.wins ?? 0) + (p.draws ?? 0) + (p.losses ?? 0)
+    let diff = 0
+    switch (by) {
+      case 'wins':         diff = (a.wins ?? 0) - (b.wins ?? 0); break
+      case 'draws':        diff = (a.draws ?? 0) - (b.draws ?? 0); break
+      case 'losses':       diff = (a.losses ?? 0) - (b.losses ?? 0); break
+      case 'played':       diff = played(a) - played(b); break
+      case 'goalsFor':     diff = (a.goalsFor ?? 0) - (b.goalsFor ?? 0); break
+      case 'goalsAgainst': diff = (a.goalsAgainst ?? 0) - (b.goalsAgainst ?? 0); break
+      case 'goalDiff':     diff = gd(a) - gd(b); break
+      case 'rating':       diff = Number(a.rating) - Number(b.rating); break
+      case 'name':         diff = a.name.localeCompare(b.name); break
+    }
+    return dir === 'asc' ? diff : -diff
+  })
+}
+
 function PlayersView({ room }: { room: Room }) {
   const { getAccessTokenSilently } = useAuth0()
   const [players, setPlayers] = useState<Player[] | null>(null)
@@ -426,6 +462,10 @@ function PlayersView({ room }: { room: Room }) {
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
   const [deletingPlayer, setDeletingPlayer] = useState<Player | null>(null)
+  const [sortBy, setSortBy] = useState<SortKey>('wins')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [search, setSearch] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -442,12 +482,17 @@ function PlayersView({ room }: { room: Room }) {
     return () => { mounted = false }
   }, [getAccessTokenSilently, refreshKey])
 
-  const squadPlayers = players ?? []
   const averageRating = players?.length
     ? Math.round(players.reduce((total, player) => total + Number(player.rating), 0) / players.length)
     : 0
 
   function refresh() { setRefreshKey((key) => key + 1) }
+
+  const sorted = sortPlayers(
+    (players ?? []).filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase())),
+    sortBy,
+    sortDir,
+  )
 
   return (
     <section className="screen">
@@ -484,11 +529,48 @@ function PlayersView({ room }: { room: Room }) {
         <StatCard label="Avg rating" value={averageRating || '--'} />
       </div>
 
+      <div className="sort-bar">
+        <button
+          type="button"
+          className={`icon-btn${showSearch ? ' active' : ''}`}
+          onClick={() => { setShowSearch((s) => !s); if (showSearch) setSearch('') }}
+          title="Search players"
+        >
+          <Search size={15} />
+        </button>
+        <select
+          className="sort-select"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortKey)}
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={() => setSortDir((d) => d === 'asc' ? 'desc' : 'asc')}
+          title={sortDir === 'desc' ? 'Descending — click to flip' : 'Ascending — click to flip'}
+        >
+          <ArrowDownUp size={15} style={{ transform: sortDir === 'asc' ? 'scaleY(-1)' : 'none' }} />
+        </button>
+        {showSearch ? (
+          <input
+            className="search-input"
+            placeholder="Find player…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            autoFocus
+          />
+        ) : null}
+      </div>
+
       {fetchError ? <InlineError message={fetchError} /> : null}
       {!players && !fetchError ? <SkeletonList /> : null}
 
       <div className="list-stack">
-        {squadPlayers.map((player, index) => (
+        {sorted.map((player, index) => (
           <PlayerRow
             key={player.id}
             player={player}
@@ -1219,9 +1301,11 @@ function PlayerRow({
             <div><span>Wins</span><strong>{wins}</strong></div>
             <div><span>Draws</span><strong>{draws}</strong></div>
             <div><span>Losses</span><strong>{losses}</strong></div>
+            <div><span>Win %</span><strong>{played > 0 ? `${Math.round((wins / played) * 100)}%` : '—'}</strong></div>
             <div><span>Goals for</span><strong>{gf}</strong></div>
             <div><span>Goals against</span><strong>{ga}</strong></div>
-            <div><span>Goal diff</span><strong>{gf - ga > 0 ? `+${gf - ga}` : gf - ga}</strong></div>
+            <div><span>Goal diff</span><strong style={{ color: gf - ga > 0 ? 'var(--grass)' : gf - ga < 0 ? 'var(--danger)' : undefined }}>{gf - ga > 0 ? `+${gf - ga}` : gf - ga}</strong></div>
+            <div><span>Goals/game</span><strong>{played > 0 ? (gf / played).toFixed(1) : '—'}</strong></div>
             <div><span>Rating</span><strong>{Math.round(Number(player.rating))}</strong></div>
           </div>
         </div>

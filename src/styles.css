@@ -929,6 +929,46 @@ button {
   padding: 0 10px;
 }
 
+.sort-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sort-select {
+  flex: 1;
+  min-width: 120px;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgb(255 255 255 / 8%);
+  color: var(--ink);
+  color-scheme: dark;
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.search-input {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgb(3 12 9 / 60%);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0 12px;
+}
+
+.icon-btn.active {
+  background: rgb(40 209 124 / 18%);
+  border-color: rgb(40 209 124 / 40%);
+  color: var(--grass);
+}
+
 .player-card.expanded .expand-icon {
   transform: rotate(180deg);
 }
@@ -940,8 +980,8 @@ button {
 
 .player-stat-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
 }
 
 .player-stat-grid div {
