@@ -1272,7 +1272,80 @@ function NewFixtureForm({ onCreated, pastLocations }: { onCreated: () => void; p
   )
 }
 
-type AdminAction = 'manual' | 'result' | 'delete' | null
+function EditFixtureForm({
+  fixture,
+  onSaved,
+  onCancel,
+}: {
+  fixture: Pick<Gameweek, 'id' | 'date' | 'location' | 'startTime' | 'maxPlayers'>
+  onSaved: (updated: Pick<Gameweek, 'date' | 'location' | 'startTime' | 'maxPlayers'>) => void
+  onCancel: () => void
+}) {
+  const { getAccessTokenSilently } = useAuth0()
+  const [date, setDate] = useState(fixture.date?.slice(0, 10) ?? '')
+  const [startTime, setStartTime] = useState(fixture.startTime ?? '')
+  const [location, setLocation] = useState(fixture.location ?? '')
+  const [maxPlayers, setMaxPlayers] = useState(fixture.maxPlayers?.toString() ?? '')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function save() {
+    setBusy(true)
+    setError(null)
+    try {
+      const updated = await apiRequest<Pick<Gameweek, 'date' | 'location' | 'startTime' | 'maxPlayers'>>(
+        `/api/gameweeks/${fixture.id}`,
+        getAccessTokenSilently,
+        {
+          method: 'PUT',
+          body: {
+            date,
+            startTime: startTime || null,
+            location: location || null,
+            maxPlayers: maxPlayers ? Number(maxPlayers) : null,
+          },
+        },
+      )
+      onSaved(updated)
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Could not save fixture')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="form-panel">
+      {error ? <InlineError message={error} /> : null}
+      <label>
+        Date
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      </label>
+      <label>
+        Start time
+        <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+      </label>
+      <label>
+        Location
+        <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Powerleague, pitch 3" />
+      </label>
+      <label>
+        Max players
+        <input inputMode="numeric" value={maxPlayers} onChange={(e) => setMaxPlayers(e.target.value)} placeholder="10" />
+      </label>
+      <div className="form-row">
+        <button className="primary-action compact" type="button" onClick={save} disabled={busy || !date}>
+          Save
+        </button>
+        <button className="secondary-action" type="button" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
+type AdminAction = 'manual' | 'edit' | 'result' | 'delete' | null
 
 function FixtureCard({
   fixture,
@@ -1289,6 +1362,10 @@ function FixtureCard({
   const [detailKey, setDetailKey] = useState(0)
   const [gameResult, setGameResult] = useState(fixture.gameResult)
   const [localPoM, setLocalPoM] = useState(fixture.playerOfTheMatch ?? [])
+  const [localDate, setLocalDate] = useState(fixture.date)
+  const [localLocation, setLocalLocation] = useState(fixture.location ?? null)
+  const [localStartTime, setLocalStartTime] = useState(fixture.startTime ?? null)
+  const [localMaxPlayers, setLocalMaxPlayers] = useState(fixture.maxPlayers ?? null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [adminAction, setAdminAction] = useState<AdminAction>(null)
@@ -1402,12 +1479,12 @@ function FixtureCard({
     <article className={`fixture-card ${expanded ? 'expanded' : ''}`}>
       <button className="fixture-row fixture-toggle" type="button" onClick={() => setExpanded((value) => !value)}>
         <div className="fixture-date">
-          <strong>{new Date(fixture.date).toLocaleDateString(undefined, { day: '2-digit' })}</strong>
-          <span>{new Date(fixture.date).toLocaleDateString(undefined, { month: 'short' })}</span>
+          <strong>{new Date(localDate).toLocaleDateString(undefined, { day: '2-digit' })}</strong>
+          <span>{new Date(localDate).toLocaleDateString(undefined, { month: 'short' })}</span>
         </div>
         <div>
-          <h3>{fixture.location ?? 'Fixture'}</h3>
-          <p>{fixture.startTime ?? 'Time TBC'} · max {fixture.maxPlayers ?? 'open'}</p>
+          <h3>{localLocation ?? 'Fixture'}</h3>
+          <p>{localStartTime ?? 'Time TBC'} · max {localMaxPlayers ?? 'open'}</p>
           {localPoM.length > 0 && gameResult ? (
             <span className="fixture-pom-line">
               <Trophy size={10} />
@@ -1490,6 +1567,13 @@ function FixtureCard({
                 </button>
                 <button
                   type="button"
+                  className={`admin-action-btn${adminAction === 'edit' ? ' active' : ''}`}
+                  onClick={() => toggleAdmin('edit')}
+                >
+                  <CalendarDays size={14} /> Edit fixture
+                </button>
+                <button
+                  type="button"
                   className={`admin-action-btn${adminAction === 'result' ? ' active' : ''}`}
                   onClick={() => toggleAdmin('result')}
                 >
@@ -1509,6 +1593,20 @@ function FixtureCard({
                   availability={detail.availability}
                   assignments={detail.assignments ?? []}
                   onAssign={assignPlayer}
+                />
+              ) : null}
+
+              {adminAction === 'edit' ? (
+                <EditFixtureForm
+                  fixture={{ ...fixture, date: localDate, location: localLocation, startTime: localStartTime, maxPlayers: localMaxPlayers }}
+                  onSaved={(updated) => {
+                    setLocalDate(updated.date)
+                    setLocalLocation(updated.location ?? null)
+                    setLocalStartTime(updated.startTime ?? null)
+                    setLocalMaxPlayers(updated.maxPlayers ?? null)
+                    setAdminAction(null)
+                  }}
+                  onCancel={() => setAdminAction(null)}
                 />
               ) : null}
 

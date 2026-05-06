@@ -783,6 +783,24 @@ export const handler: Handler = async (event) => {
       return gameweek ? json(formatGameweek(gameweek)) : json({ error: 'Gameweek not found' }, 404)
     }
 
+    if (gameweekMatch && method === 'PUT') {
+      if (!auth.isAdmin) return json({ error: 'Admin privileges required.' }, 403)
+      const body = parseBody<{ date?: string; location?: string | null; startTime?: string | null; maxPlayers?: number | null }>(event)
+      if (!body.date) return json({ error: 'date is required' }, 400)
+      const [updated] = await db.sql`
+        UPDATE public."Gameweeks"
+        SET date = ${body.date},
+            location = ${body.location ?? null},
+            "startTime" = ${body.startTime ?? null},
+            "maxPlayers" = ${body.maxPlayers ?? null},
+            "updatedAt" = NOW()
+        WHERE id = ${Number(gameweekMatch[1])}
+          AND "roomId" = ${active.roomId}
+        RETURNING id, date::text, location, "startTime", "maxPlayers"
+      `
+      return updated ? json(updated) : json({ error: 'Fixture not found' }, 404)
+    }
+
     if (gameweekMatch && method === 'DELETE') {
       await db.sql`
         DELETE FROM public."Gameweeks"
