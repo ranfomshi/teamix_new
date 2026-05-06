@@ -154,6 +154,7 @@ function AuthenticatedShell() {
   const [apiState, setApiState] = useState<ApiState | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const [pendingJoinCode, setPendingJoinCode] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -170,17 +171,22 @@ function AuthenticatedShell() {
         ).toUpperCase()
 
         if (inviteCode) {
+          sessionStorage.removeItem('pendingInvite')
+          window.history.replaceState({}, '', window.location.pathname)
           const match = data.memberships.find((m) => m.code.toUpperCase() === inviteCode)
           if (match) {
-            sessionStorage.removeItem('pendingInvite')
-            window.history.replaceState({}, '', window.location.pathname)
             if (!match.isActive) {
               await apiSend('/api/set-active-room', getAccessTokenSilently, { roomId: match.roomId })
               const refreshed = await apiFetch<ApiState>('/api/check-room-membership', getAccessTokenSilently)
               if (mounted) setApiState(refreshed)
               return
             }
+            // already active — fall through, nothing to do
+          } else if (data.activeRoom) {
+            // not a member but already in another room — prompt to join
+            if (mounted) setPendingJoinCode(inviteCode)
           }
+          // if no activeRoom + no match, RoomGate handles it via its own state init
         }
 
         if (mounted) setApiState(data)
@@ -252,6 +258,16 @@ function AuthenticatedShell() {
         </Routes>
       </main>
       <BottomNav />
+      {pendingJoinCode && (
+        <div className="join-overlay">
+          <RoomGate
+            memberships={apiState.memberships}
+            initialCode={pendingJoinCode}
+            onCancel={() => setPendingJoinCode(null)}
+            onRoomChanged={() => { setPendingJoinCode(null); setReloadKey((k) => k + 1) }}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -425,11 +441,22 @@ function SkillLevelField({
   )
 }
 
-function RoomGate({ memberships, onRoomChanged }: { memberships: Room[]; onRoomChanged: () => void }) {
+function RoomGate({
+  memberships,
+  onRoomChanged,
+  initialCode,
+  onCancel,
+}: {
+  memberships: Room[]
+  onRoomChanged: () => void
+  initialCode?: string
+  onCancel?: () => void
+}) {
   const { getAccessTokenSilently, logout, user } = useAuth0()
   const { data: sports } = useApi<Sport[]>('/api/sports', getAccessTokenSilently, false)
   const [mode, setMode] = useState<'join' | 'create'>('join')
   const [roomCode, setRoomCode] = useState(() => {
+    if (initialCode) return initialCode.toUpperCase()
     const fromUrl = new URLSearchParams(window.location.search).get('invite')
     if (fromUrl) return fromUrl.toUpperCase()
     const fromStorage = sessionStorage.getItem('pendingInvite')
@@ -514,9 +541,14 @@ function RoomGate({ memberships, onRoomChanged }: { memberships: Room[]; onRoomC
 
   return (
     <main className="room-gate">
+      {onCancel && (
+        <button type="button" className="room-gate-cancel" onClick={onCancel}>
+          <X size={18} /> Not now
+        </button>
+      )}
       <img src="/fp_logo.png" alt="" />
-      <h1>Choose or join a squad</h1>
-      <p>Your account is signed in, but there is no active room yet.</p>
+      <h1>{onCancel ? "You've been invited" : 'Choose or join a squad'}</h1>
+      <p>{onCancel ? 'Join a new room with the code below.' : 'Your account is signed in, but there is no active room yet.'}</p>
       {error ? <InlineError message={error} /> : null}
       {memberships.length > 0 ? (
         <div className="room-list">

@@ -177,6 +177,40 @@ button {
   text-align: center;
 }
 
+.join-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(0 0 0 / 70%);
+  display: flex;
+  align-items: flex-end;
+}
+
+.join-overlay .room-gate {
+  width: 100%;
+  max-height: 92dvh;
+  overflow-y: auto;
+  background: #0d1f18;
+  border-radius: 18px 18px 0 0;
+  border-top: 1px solid var(--line);
+  place-content: start center;
+}
+
+.room-gate-cancel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 auto 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
 .splash img,
 .room-gate > img {
   width: 82px;
