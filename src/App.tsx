@@ -2393,9 +2393,9 @@ function AchievementsView() {
   useEffect(() => {
     async function load() {
       try {
-        if (!sessionStorage.getItem('ach-synced-v2')) {
+        if (!sessionStorage.getItem('ach-synced-v3')) {
           await apiSend('/api/recalculate-achievements', getAccessTokenSilently, {})
-          sessionStorage.setItem('ach-synced-v2', '1')
+          sessionStorage.setItem('ach-synced-v3', '1')
         }
         const data = await apiFetch<FullAchievement[]>('/api/player-achievements', getAccessTokenSilently)
         setAchievements(data)

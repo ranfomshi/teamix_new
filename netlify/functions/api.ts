@@ -1671,6 +1671,11 @@ async function updatePlayerRatings(gameweekId: number, roomId: number) {
 }
 
 async function awardAchievementsForGameweek(gameweekId: number, roomId: number, teamA_score: number, teamB_score: number) {
+  const [gameweek] = await db.sql<{ date: string }>`
+    SELECT date::text FROM public."Gameweeks" WHERE id = ${gameweekId}
+  `
+  const earnedAt = gameweek?.date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10)
+
   const assignments = await db.sql<{ playerId: number; team: string }>`
     SELECT "playerId", team
     FROM public."TeamAssignments"
@@ -1692,8 +1697,10 @@ async function awardAchievementsForGameweek(gameweekId: number, roomId: number, 
     for (const achievementId of eligibleIds) {
       await db.sql`
         INSERT INTO public."PlayerAchievements" ("playerId", "achievementId", "roomId", "earnedAt", "createdAt", "updatedAt")
-        VALUES (${assignment.playerId}, ${achievementId}, ${roomId}, NOW(), NOW(), NOW())
-        ON CONFLICT ("playerId", "achievementId") DO NOTHING
+        VALUES (${assignment.playerId}, ${achievementId}, ${roomId}, ${earnedAt}, NOW(), NOW())
+        ON CONFLICT ("playerId", "achievementId") DO UPDATE
+          SET "earnedAt" = LEAST("PlayerAchievements"."earnedAt", EXCLUDED."earnedAt"),
+              "updatedAt" = NOW()
       `
     }
   }
