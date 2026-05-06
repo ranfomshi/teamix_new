@@ -2006,13 +2006,21 @@ function RoomAccessPanel({
   const [newTeamBColor, setNewTeamBColor] = useState('#f5c84b')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const [showMemberships, setShowMemberships] = useState(false)
+
+  function confirmAndReload(msg: string) {
+    setSuccessMsg(msg)
+    setTimeout(() => onRoomChanged(), 1500)
+  }
 
   async function activateRoom(roomId: number) {
     setBusy(true)
     setError(null)
     try {
       await apiSend('/api/set-active-room', getAccessTokenSilently, { roomId })
-      onRoomChanged()
+      const target = memberships.find((m) => m.roomId === roomId)
+      confirmAndReload(`Switched to ${target?.name ?? 'room'} ✓`)
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Could not switch room')
     } finally {
@@ -2028,7 +2036,8 @@ function RoomAccessPanel({
       const response = await apiSend<JoinRoomResponse>('/api/join-room', getAccessTokenSilently, { code: roomCode })
       setJoinResult(response)
       if (response.status === 'already-member' && response.room) {
-        await activateRoom(response.room.id)
+        await apiSend('/api/set-active-room', getAccessTokenSilently, { roomId: response.room.id })
+        confirmAndReload(`Switched to ${response.room.name} ✓`)
       }
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Could not find room')
@@ -2048,7 +2057,7 @@ function RoomAccessPanel({
         skillLevel,
         profilePicture: user?.picture ?? null,
       })
-      onRoomChanged()
+      confirmAndReload(`Joined ${joinResult?.room?.name ?? 'room'} ✓`)
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Could not join room')
     } finally {
@@ -2069,7 +2078,7 @@ function RoomAccessPanel({
         skillLevel,
         profilePicture: user?.picture ?? null,
       })
-      onRoomChanged()
+      confirmAndReload(`${newRoomName} created ✓`)
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Could not create room')
     } finally {
@@ -2081,23 +2090,36 @@ function RoomAccessPanel({
     <div className="form-panel wide room-access-panel">
       <h2>Rooms</h2>
       {error ? <InlineError message={error} /> : null}
-      <div className="room-list compact">
-        {memberships.map((membership) => (
-          <div className="room-card" key={membership.roomId}>
-            <div>
-              <strong>{membership.name}</strong>
-              <span>{membership.code}{membership.roomId === room.roomId ? ' - active' : ''}</span>
+      {successMsg ? <p className="room-success-msg">{successMsg}</p> : null}
+
+      <button
+        type="button"
+        className="memberships-toggle"
+        onClick={() => setShowMemberships((v) => !v)}
+      >
+        <span>Your rooms ({memberships.length})</span>
+        <ChevronDown size={16} className={showMemberships ? 'rotated' : ''} />
+      </button>
+
+      {showMemberships && (
+        <div className="room-list compact">
+          {memberships.map((membership) => (
+            <div className="room-card" key={membership.roomId}>
+              <div>
+                <strong>{membership.name}</strong>
+                <span>{membership.code}{membership.roomId === room.roomId ? ' · active' : ''}</span>
+              </div>
+              <button
+                type="button"
+                disabled={busy || membership.roomId === room.roomId}
+                onClick={() => activateRoom(membership.roomId)}
+              >
+                {membership.roomId === room.roomId ? 'Active' : 'Switch'}
+              </button>
             </div>
-            <button
-              type="button"
-              disabled={busy || membership.roomId === room.roomId}
-              onClick={() => activateRoom(membership.roomId)}
-            >
-              Switch
-            </button>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <div className="mode-tabs compact-tabs">
         <button className={roomMode === 'join' ? 'active' : ''} type="button" onClick={() => setRoomMode('join')}>Join</button>

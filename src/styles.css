@@ -931,6 +931,43 @@ button {
   background: linear-gradient(90deg, rgb(255 255 255 / 6%), rgb(255 255 255 / 12%), rgb(255 255 255 / 6%));
 }
 
+.room-success-msg {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgb(40 209 124 / 12%);
+  border: 1px solid rgb(40 209 124 / 30%);
+  color: var(--grass);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.memberships-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.memberships-toggle svg {
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.memberships-toggle svg.rotated {
+  transform: rotate(180deg);
+}
+
 .room-card {
   justify-content: space-between;
   text-align: left;
