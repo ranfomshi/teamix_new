@@ -604,14 +604,15 @@ function NotificationBell({
   playerId: number
 }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [open, setOpen] = useState(false)
   const [acting, setActing] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     apiFetch<AppNotification[]>('/api/notifications', getAccessTokenSilently)
-      .then(setNotifications)
-      .catch(() => {})
+      .then((data) => { setNotifications(data); setLoaded(true) })
+      .catch((e) => { console.error('[Notifications] fetch failed', e); setLoaded(true) })
   }, [getAccessTokenSilently])
 
   async function castVote(gameweekId: number, votedPlayerId: number) {
@@ -640,7 +641,7 @@ function NotificationBell({
     }
   }
 
-  if (notifications.length === 0) return null
+  if (!loaded) return null
 
   function fmtDate(dateStr: string) {
     return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-GB', {
@@ -652,7 +653,7 @@ function NotificationBell({
     <>
       <button className="notif-bell" type="button" onClick={() => setOpen((o) => !o)} aria-label="Notifications">
         <Bell size={18} />
-        <span className="notif-count">{notifications.length}</span>
+        {notifications.length > 0 && <span className="notif-count">{notifications.length}</span>}
       </button>
 
       {open && (
@@ -664,6 +665,9 @@ function NotificationBell({
               <button type="button" className="install-dismiss" onClick={() => setOpen(false)}><X size={14} /></button>
             </div>
             {error && <p className="form-error">{error}</p>}
+            {notifications.length === 0 && (
+              <p className="notif-empty">No pending actions — you're all caught up.</p>
+            )}
             {notifications.map((n) => {
               const isActing = acting === n.gameweekId
               const sub = [fmtDate(n.date), n.startTime, n.location].filter(Boolean).join(' · ')

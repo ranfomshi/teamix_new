@@ -408,6 +408,13 @@ button {
   margin-top: 4px;
 }
 
+.notif-empty {
+  margin: 4px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 .notif-in-btn,
 .notif-out-btn {
   flex: 1;
