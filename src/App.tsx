@@ -644,7 +644,7 @@ function NotificationBell({
   if (!loaded) return null
 
   function fmtDate(dateStr: string) {
-    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-GB', {
+    return new Date(dateStr.slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', {
       weekday: 'short', day: 'numeric', month: 'short',
     })
   }

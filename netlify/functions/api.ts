@@ -991,7 +991,7 @@ export const handler: Handler = async (event) => {
       }>`
         SELECT
           gw.id AS "gameweekId",
-          gw.date::text,
+          gw.date,
           gw.location,
           gw."startTime",
           json_agg(
@@ -1025,7 +1025,7 @@ export const handler: Handler = async (event) => {
       const availabilityNotifications = await db.sql<{
         gameweekId: number; date: string; location: string | null; startTime: string | null
       }>`
-        SELECT gw.id AS "gameweekId", gw.date::text, gw.location, gw."startTime"
+        SELECT gw.id AS "gameweekId", gw.date, gw.location, gw."startTime"
         FROM public."Gameweeks" gw
         LEFT JOIN public."Availabilities" a
           ON a."gameweekId" = gw.id
