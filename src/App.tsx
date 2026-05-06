@@ -136,7 +136,12 @@ function AppFrame() {
   }
 
   if (!isAuthenticated) {
-    return <Welcome onLogin={() => loginWithRedirect()} />
+    function handleLogin() {
+      const invite = new URLSearchParams(window.location.search).get('invite')
+      if (invite) sessionStorage.setItem('pendingInvite', invite)
+      loginWithRedirect()
+    }
+    return <Welcome onLogin={handleLogin} />
   }
 
   return (
@@ -402,7 +407,13 @@ function RoomGate({ memberships, onRoomChanged }: { memberships: Room[]; onRoomC
   const { getAccessTokenSilently, logout, user } = useAuth0()
   const { data: sports } = useApi<Sport[]>('/api/sports', getAccessTokenSilently, false)
   const [mode, setMode] = useState<'join' | 'create'>('join')
-  const [roomCode, setRoomCode] = useState('')
+  const [roomCode, setRoomCode] = useState(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get('invite')
+    if (fromUrl) return fromUrl.toUpperCase()
+    const fromStorage = sessionStorage.getItem('pendingInvite')
+    if (fromStorage) { sessionStorage.removeItem('pendingInvite'); return fromStorage.toUpperCase() }
+    return ''
+  })
   const [playerName, setPlayerName] = useState(user?.name ?? '')
   const [roomName, setRoomName] = useState('')
   const [sportId, setSportId] = useState<number | ''>('')
@@ -451,6 +462,7 @@ function RoomGate({ memberships, onRoomChanged }: { memberships: Room[]; onRoomC
         skillLevel,
         profilePicture: user?.picture ?? null,
       })
+      window.history.replaceState({}, '', window.location.pathname)
       onRoomChanged()
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Could not join room')
@@ -579,6 +591,21 @@ function TopBar({
   userName: string
   getAccessTokenSilently: () => Promise<string>
 }) {
+  const [copied, setCopied] = useState(false)
+
+  async function shareRoom() {
+    const url = `${window.location.origin}?invite=${room.code}`
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: room.name, text: `Join ${room.name} on Teamix`, url })
+      } catch { /* cancelled */ }
+    } else {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
   return (
     <header className="top-bar">
       <div className="room-mark">
@@ -590,7 +617,9 @@ function TopBar({
       </div>
       <div className="top-bar-actions">
         <NotificationBell getAccessTokenSilently={getAccessTokenSilently} playerId={room.playerId} />
-        <div className="room-code">{room.code}</div>
+        <button type="button" className="room-code" onClick={shareRoom}>
+          {copied ? 'Copied!' : room.code}
+        </button>
       </div>
     </header>
   )

@@ -479,6 +479,12 @@ button {
   color: var(--lime);
   font-family: ui-monospace, Consolas, monospace;
   font-weight: 850;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.room-code:hover {
+  background: rgb(255 255 255 / 14%);
 }
 
 .app-content {
