@@ -164,6 +164,7 @@ function AppFrame() {
 function AuthenticatedShell() {
   const { getAccessTokenSilently, user, logout } = useAuth0()
   const [apiState, setApiState] = useState<ApiState | null>(null)
+  const [initialNotifs, setInitialNotifs] = useState<AppNotification[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
   const [pendingJoinCode, setPendingJoinCode] = useState<string | null>(null)
@@ -173,7 +174,10 @@ function AuthenticatedShell() {
 
     async function loadRoom() {
       try {
-        const data = await apiFetch<ApiState>('/api/check-room-membership', getAccessTokenSilently)
+        const [data, notifs] = await Promise.all([
+          apiFetch<ApiState>('/api/check-room-membership', getAccessTokenSilently),
+          apiFetch<AppNotification[]>('/api/notifications', getAccessTokenSilently).catch(() => [] as AppNotification[]),
+        ])
 
         // If an invite link was opened, check whether the user is already a member
         const inviteCode = (
@@ -201,7 +205,10 @@ function AuthenticatedShell() {
           // if no activeRoom + no match, RoomGate handles it via its own state init
         }
 
-        if (mounted) setApiState(data)
+        if (mounted) {
+          setApiState(data)
+          setInitialNotifs(notifs)
+        }
       } catch (error) {
         if (mounted) setLoadError(error instanceof Error ? error.message : 'Unable to load room')
       }
@@ -249,7 +256,7 @@ function AuthenticatedShell() {
 
   return (
     <div className="app-shell">
-      <TopBar room={apiState.activeRoom} userName={user?.name ?? 'Player'} getAccessTokenSilently={getAccessTokenSilently} />
+      <TopBar room={apiState.activeRoom} userName={user?.name ?? 'Player'} getAccessTokenSilently={getAccessTokenSilently} initialNotifications={initialNotifs ?? undefined} />
       <InstallBanner />
       <main className="app-content">
         <Routes>
@@ -300,36 +307,20 @@ function isIOSBrowser() {
 function InstallBanner() {
   // Read the module-level prompt captured before React mounted.
   // Also subscribe to late-firing events (edge case: very slow SW activation).
-  const [hasPrompt, setHasPrompt] = useState(() => {
-    const captured = getInstallPrompt() !== null
-    console.log('[PWA] InstallBanner mount — prompt already captured:', captured)
-    return captured
-  })
-  const [dismissed, setDismissed] = useState(() => {
-    const val = localStorage.getItem('pwa-dismissed')
-    console.log('[PWA] pwa-dismissed in localStorage:', val)
-    return val === '1'
-  })
-  const [standalone] = useState(() => {
-    const val = isRunningStandalone()
-    console.log('[PWA] running standalone:', val)
-    return val
-  })
+  const [hasPrompt, setHasPrompt] = useState(() => getInstallPrompt() !== null)
+  const [dismissed, setDismissed] = useState(() => localStorage.getItem('pwa-dismissed') === '1')
+  const [standalone] = useState(() => isRunningStandalone())
   const ios = isIOSBrowser()
-  console.log('[PWA] iOS browser:', ios)
 
   useEffect(() => {
-    console.log('[PWA] useEffect — subscribing to late beforeinstallprompt, hasPrompt:', hasPrompt)
     if (hasPrompt) return
     function handler(e: Event) {
-      console.log('[PWA] beforeinstallprompt fired inside useEffect (late) ✓', e)
+      e.preventDefault()
       setHasPrompt(true)
     }
     window.addEventListener('beforeinstallprompt', handler)
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [hasPrompt])
-
-  console.log('[PWA] render — standalone:', standalone, 'dismissed:', dismissed, 'hasPrompt:', hasPrompt, 'ios:', ios)
 
   if (standalone || dismissed) return null
 
@@ -652,10 +643,12 @@ function TopBar({
   room,
   userName,
   getAccessTokenSilently,
+  initialNotifications,
 }: {
   room: Room
   userName: string
   getAccessTokenSilently: () => Promise<string>
+  initialNotifications?: AppNotification[]
 }) {
   const [copied, setCopied] = useState(false)
 
@@ -682,7 +675,7 @@ function TopBar({
         </div>
       </div>
       <div className="top-bar-actions">
-        <NotificationBell getAccessTokenSilently={getAccessTokenSilently} playerId={room.playerId} />
+        <NotificationBell getAccessTokenSilently={getAccessTokenSilently} playerId={room.playerId} initialNotifications={initialNotifications} />
         <button type="button" className="room-code" onClick={shareRoom}>
           {copied ? 'Copied!' : room.code}
         </button>
@@ -694,21 +687,24 @@ function TopBar({
 function NotificationBell({
   getAccessTokenSilently,
   playerId,
+  initialNotifications,
 }: {
   getAccessTokenSilently: () => Promise<string>
   playerId: number
+  initialNotifications?: AppNotification[]
 }) {
-  const [notifications, setNotifications] = useState<AppNotification[]>([])
-  const [loaded, setLoaded] = useState(false)
+  const [notifications, setNotifications] = useState<AppNotification[]>(initialNotifications ?? [])
+  const [loaded, setLoaded] = useState(initialNotifications !== undefined)
   const [open, setOpen] = useState(false)
   const [acting, setActing] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (initialNotifications !== undefined) return
     apiFetch<AppNotification[]>('/api/notifications', getAccessTokenSilently)
       .then((data) => { setNotifications(data); setLoaded(true) })
-      .catch((e) => { console.error('[Notifications] fetch failed', e); setLoaded(true) })
-  }, [getAccessTokenSilently])
+      .catch(() => { setLoaded(true) })
+  }, [getAccessTokenSilently, initialNotifications])
 
   async function castVote(gameweekId: number, votedPlayerId: number) {
     setActing(gameweekId)
@@ -994,6 +990,7 @@ function PlayersView({ room }: { room: Room }) {
             player={player}
             rank={index + 1}
             room={room}
+            getAccessTokenSilently={getAccessTokenSilently}
             onEdit={room.isAdmin ? () => { setEditingPlayer(player); setDeletingPlayer(null); setShowAddForm(false) } : undefined}
             onDelete={room.isAdmin ? () => { setDeletingPlayer(player); setEditingPlayer(null); setShowAddForm(false) } : undefined}
           />
@@ -2379,16 +2376,17 @@ function PlayerRow({
   player,
   rank,
   room,
+  getAccessTokenSilently,
   onEdit,
   onDelete,
 }: {
   player: Player
   rank: number
   room: Room
+  getAccessTokenSilently: () => Promise<string>
   onEdit?: () => void
   onDelete?: () => void
 }) {
-  const { getAccessTokenSilently } = useAuth0()
   const [expanded, setExpanded] = useState(false)
   const [combos, setCombos] = useState<PlayerCombos | null>(null)
   const [combosLoading, setCombosLoading] = useState(false)

@@ -11,9 +11,7 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 let _installPrompt: BeforeInstallPromptEvent | null = null
-console.log('[PWA] main.tsx loaded — listening for beforeinstallprompt')
 window.addEventListener('beforeinstallprompt', (e) => {
-  console.log('[PWA] beforeinstallprompt fired at module level ✓', e)
   e.preventDefault()
   _installPrompt = e as BeforeInstallPromptEvent
 })
