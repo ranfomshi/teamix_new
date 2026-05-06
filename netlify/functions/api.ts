@@ -524,6 +524,7 @@ export const handler: Handler = async (event) => {
     const playerMatch = route.match(/^\/players\/(\d+)$/)
     const playerLinkMatch = route.match(/^\/players\/(\d+)\/link$/)
     const playerCombosMatch = route.match(/^\/players\/(\d+)\/combos$/)
+    const playerAchievementsMatch = route.match(/^\/players\/(\d+)\/achievements$/)
     if (playerCombosMatch && method === 'GET') {
       const playerId = Number(playerCombosMatch[1])
       const allies = await db.sql<{
@@ -609,6 +610,20 @@ export const handler: Handler = async (event) => {
         LIMIT 5
       `
       return json({ allies, opponents })
+    }
+
+    if (playerAchievementsMatch && method === 'GET') {
+      const playerId = Number(playerAchievementsMatch[1])
+      const achievements = await db.sql<{ id: number; title: string; description: string; earnedAt: string }>`
+        SELECT a.id, a.title, a.description, pa."earnedAt"
+        FROM public."PlayerAchievements" pa
+        JOIN public."Achievements" a ON a.id = pa."achievementId"
+        WHERE pa."playerId" = ${playerId}
+          AND pa."roomId" = ${active.roomId}
+          AND a."isActive" = true
+        ORDER BY pa."earnedAt" DESC
+      `
+      return json(achievements)
     }
 
     if (playerLinkMatch && method === 'PUT') {

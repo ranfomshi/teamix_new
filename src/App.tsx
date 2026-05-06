@@ -107,6 +107,13 @@ type ComboEntry = {
 
 type PlayerCombos = { allies: ComboEntry[]; opponents: ComboEntry[] }
 
+type AchievementEntry = {
+  id: number
+  title: string
+  description: string
+  earnedAt: string
+}
+
 type AppNotification =
   | { type: 'vote'; gameweekId: number; date: string; location: string | null; startTime: string | null; players: NotifPlayer[] }
   | { type: 'availability'; gameweekId: number; date: string; location: string | null; startTime: string | null }
@@ -2410,6 +2417,7 @@ function PlayerRow({
 }) {
   const [expanded, setExpanded] = useState(false)
   const [combos, setCombos] = useState<PlayerCombos | null>(null)
+  const [achievements, setAchievements] = useState<AchievementEntry[] | null>(null)
   const [combosLoading, setCombosLoading] = useState(false)
   const wins = player.wins ?? 0
   const draws = player.draws ?? 0
@@ -2422,9 +2430,12 @@ function PlayerRow({
   useEffect(() => {
     if (!expanded || combos !== null || combosLoading) return
     setCombosLoading(true)
-    apiFetch<PlayerCombos>(`/api/players/${player.id}/combos`, getAccessTokenSilently)
-      .then((data) => setCombos(data))
-      .catch(() => setCombos({ allies: [], opponents: [] }))
+    Promise.all([
+      apiFetch<PlayerCombos>(`/api/players/${player.id}/combos`, getAccessTokenSilently),
+      apiFetch<AchievementEntry[]>(`/api/players/${player.id}/achievements`, getAccessTokenSilently),
+    ])
+      .then(([comboData, achData]) => { setCombos(comboData); setAchievements(achData) })
+      .catch(() => { setCombos({ allies: [], opponents: [] }); setAchievements([]) })
       .finally(() => setCombosLoading(false))
   }, [expanded, combos, combosLoading, player.id, getAccessTokenSilently])
 
@@ -2479,6 +2490,19 @@ function PlayerRow({
             <div><span>Goals/game</span><strong>{played > 0 ? (gf / played).toFixed(1) : '—'}</strong></div>
             <div><span>Rating</span><strong>{Math.round(Number(player.rating))}</strong></div>
           </div>
+          {achievements && achievements.length > 0 ? (
+            <div className="achievements-shelf">
+              <h4 className="achievements-shelf-title">Achievements</h4>
+              <div className="achievements-list">
+                {achievements.map((a) => (
+                  <div key={a.id} className="achievement-chip" title={a.description}>
+                    <Trophy size={11} />
+                    <span>{a.title}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {combosLoading ? (
             <p className="combos-loading">Loading combos…</p>
           ) : combos && (combos.allies.length > 0 || combos.opponents.length > 0) ? (
