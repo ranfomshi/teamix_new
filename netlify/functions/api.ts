@@ -1714,7 +1714,7 @@ async function getEligibleAchievementIds({
   teamA_score: number
   teamB_score: number
 }) {
-  const recent = await getPlayerResultHistory(playerId, roomId, 100)
+  const recent = await getPlayerResultHistory(playerId, roomId, 100, gameweekId)
   const currentWin = didTeamWin(team, teamA_score, teamB_score)
   const currentLoss = didTeamLose(team, teamA_score, teamB_score)
   const teamGoals = team === 'A' ? teamA_score : teamB_score
@@ -1740,7 +1740,7 @@ async function getEligibleAchievementIds({
   return ids
 }
 
-async function getPlayerResultHistory(playerId: number, roomId: number, limit: number) {
+async function getPlayerResultHistory(playerId: number, roomId: number, limit: number, maxGameweekId?: number) {
   return db.sql<{ gameweekId: number; team: string; outcome: 'W' | 'D' | 'L' }>`
     SELECT gw.id AS "gameweekId", ta.team,
            CASE
@@ -1757,7 +1757,8 @@ async function getPlayerResultHistory(playerId: number, roomId: number, limit: n
     WHERE ta."roomId" = ${roomId}
       AND ta."playerId" = ${playerId}
       AND ta.team IN ('A', 'B')
-    ORDER BY gr."createdAt" DESC, gw.date DESC, gw.id DESC
+      AND (${maxGameweekId ?? null} IS NULL OR gw.id <= ${maxGameweekId ?? null})
+    ORDER BY gw.date DESC, gw.id DESC
     LIMIT ${limit}
   `
 }
