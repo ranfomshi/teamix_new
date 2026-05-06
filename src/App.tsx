@@ -161,6 +161,28 @@ function AuthenticatedShell() {
     async function loadRoom() {
       try {
         const data = await apiFetch<ApiState>('/api/check-room-membership', getAccessTokenSilently)
+
+        // If an invite link was opened, check whether the user is already a member
+        const inviteCode = (
+          new URLSearchParams(window.location.search).get('invite') ||
+          sessionStorage.getItem('pendingInvite') ||
+          ''
+        ).toUpperCase()
+
+        if (inviteCode) {
+          const match = data.memberships.find((m) => m.code.toUpperCase() === inviteCode)
+          if (match) {
+            sessionStorage.removeItem('pendingInvite')
+            window.history.replaceState({}, '', window.location.pathname)
+            if (!match.isActive) {
+              await apiSend('/api/set-active-room', getAccessTokenSilently, { roomId: match.roomId })
+              const refreshed = await apiFetch<ApiState>('/api/check-room-membership', getAccessTokenSilently)
+              if (mounted) setApiState(refreshed)
+              return
+            }
+          }
+        }
+
         if (mounted) setApiState(data)
       } catch (error) {
         if (mounted) setLoadError(error instanceof Error ? error.message : 'Unable to load room')
