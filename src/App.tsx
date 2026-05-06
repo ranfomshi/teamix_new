@@ -2,6 +2,7 @@ import { Auth0Provider, useAuth0 } from '@auth0/auth0-react'
 import {
   // Activity,
   ArrowDownUp,
+  Bell,
   CalendarDays,
   ChevronRight,
   ChevronDown,
@@ -91,6 +92,12 @@ type HasVotedResponse = {
   player_id: number
   votedPlayerId?: number | null
 }
+
+type NotifPlayer = { id: number; name: string; profilePicture: string | null }
+
+type AppNotification =
+  | { type: 'vote'; gameweekId: number; date: string; location: string | null; startTime: string | null; players: NotifPlayer[] }
+  | { type: 'availability'; gameweekId: number; date: string; location: string | null; startTime: string | null }
 
 
 const auth0Domain = import.meta.env.VITE_AUTH0_DOMAIN
@@ -197,7 +204,7 @@ function AuthenticatedShell() {
 
   return (
     <div className="app-shell">
-      <TopBar room={apiState.activeRoom} userName={user?.name ?? 'Player'} />
+      <TopBar room={apiState.activeRoom} userName={user?.name ?? 'Player'} getAccessTokenSilently={getAccessTokenSilently} />
       <InstallBanner />
       <main className="app-content">
         <Routes>
@@ -563,7 +570,15 @@ function RoomGate({ memberships, onRoomChanged }: { memberships: Room[]; onRoomC
   )
 }
 
-function TopBar({ room, userName }: { room: Room; userName: string }) {
+function TopBar({
+  room,
+  userName,
+  getAccessTokenSilently,
+}: {
+  room: Room
+  userName: string
+  getAccessTokenSilently: () => Promise<string>
+}) {
   return (
     <header className="top-bar">
       <div className="room-mark">
@@ -573,8 +588,149 @@ function TopBar({ room, userName }: { room: Room; userName: string }) {
           <span>{room.sportName ?? 'Team sport'} · {userName}</span>
         </div>
       </div>
-      <div className="room-code">{room.code}</div>
+      <div className="top-bar-actions">
+        <NotificationBell getAccessTokenSilently={getAccessTokenSilently} playerId={room.playerId} />
+        <div className="room-code">{room.code}</div>
+      </div>
     </header>
+  )
+}
+
+function NotificationBell({
+  getAccessTokenSilently,
+  playerId,
+}: {
+  getAccessTokenSilently: () => Promise<string>
+  playerId: number
+}) {
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const [open, setOpen] = useState(false)
+  const [acting, setActing] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    apiFetch<AppNotification[]>('/api/notifications', getAccessTokenSilently)
+      .then(setNotifications)
+      .catch(() => {})
+  }, [getAccessTokenSilently])
+
+  async function castVote(gameweekId: number, votedPlayerId: number) {
+    setActing(gameweekId)
+    setError(null)
+    try {
+      await apiSend('/api/votes', getAccessTokenSilently, { gameweekId, votedPlayerId })
+      setNotifications((prev) => prev.filter((n) => n.gameweekId !== gameweekId))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to cast vote')
+    } finally {
+      setActing(null)
+    }
+  }
+
+  async function markAvailability(gameweekId: number, status: boolean) {
+    setActing(gameweekId)
+    setError(null)
+    try {
+      await apiSend('/api/availability', getAccessTokenSilently, { gameweekId, playerId, status })
+      setNotifications((prev) => prev.filter((n) => n.gameweekId !== gameweekId))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update availability')
+    } finally {
+      setActing(null)
+    }
+  }
+
+  if (notifications.length === 0) return null
+
+  function fmtDate(dateStr: string) {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-GB', {
+      weekday: 'short', day: 'numeric', month: 'short',
+    })
+  }
+
+  return (
+    <>
+      <button className="notif-bell" type="button" onClick={() => setOpen((o) => !o)} aria-label="Notifications">
+        <Bell size={18} />
+        <span className="notif-count">{notifications.length}</span>
+      </button>
+
+      {open && (
+        <>
+          <div className="notif-backdrop" onClick={() => setOpen(false)} />
+          <div className="notif-panel">
+            <div className="notif-panel-header">
+              <span>Notifications</span>
+              <button type="button" className="install-dismiss" onClick={() => setOpen(false)}><X size={14} /></button>
+            </div>
+            {error && <p className="form-error">{error}</p>}
+            {notifications.map((n) => {
+              const isActing = acting === n.gameweekId
+              const sub = [fmtDate(n.date), n.startTime, n.location].filter(Boolean).join(' · ')
+
+              if (n.type === 'vote') {
+                return (
+                  <div key={n.gameweekId} className="notif-card">
+                    <div className="notif-card-header">
+                      <Trophy size={14} />
+                      <strong>Player of the Match</strong>
+                    </div>
+                    <p className="notif-sub">{sub}</p>
+                    <p className="notif-instruction">Who stood out? Tap to cast your vote.</p>
+                    <div className="notif-players">
+                      {n.players.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className="notif-player-btn"
+                          disabled={isActing}
+                          onClick={() => castVote(n.gameweekId, p.id)}
+                        >
+                          <div className="avatar small">
+                            {p.profilePicture
+                              ? <img src={p.profilePicture} alt="" />
+                              : initials(p.name)}
+                          </div>
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              }
+
+              return (
+                <div key={n.gameweekId} className="notif-card">
+                  <div className="notif-card-header">
+                    <CalendarDays size={14} />
+                    <strong>Are you playing?</strong>
+                  </div>
+                  <p className="notif-sub">{sub}</p>
+                  <div className="notif-avail-btns">
+                    <button
+                      type="button"
+                      className="notif-in-btn"
+                      disabled={isActing}
+                      onClick={() => markAvailability(n.gameweekId, true)}
+                    >
+                      I'm in
+                    </button>
+                    <button
+                      type="button"
+                      className="notif-out-btn"
+                      disabled={isActing}
+                      onClick={() => markAvailability(n.gameweekId, false)}
+                    >
+                      I'm out
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+    </>
   )
 }
 

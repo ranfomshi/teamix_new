@@ -984,6 +984,66 @@ export const handler: Handler = async (event) => {
       return json(achievements)
     }
 
+    if (method === 'GET' && route === '/notifications') {
+      const voteNotifications = await db.sql<{
+        gameweekId: number; date: string; location: string | null; startTime: string | null;
+        players: { id: number; name: string; profilePicture: string | null }[]
+      }>`
+        SELECT
+          gw.id AS "gameweekId",
+          gw.date::text,
+          gw.location,
+          gw."startTime",
+          json_agg(
+            json_build_object('id', p.id, 'name', p.name, 'profilePicture', p."profilePicture")
+            ORDER BY p.name
+          ) AS players
+        FROM public."GameResults" gr
+        JOIN public."Gameweeks" gw
+          ON gw.id = gr."gameweekId" AND gw."roomId" = gr."roomId"
+        JOIN public."TeamAssignments" my_ta
+          ON my_ta."gameweekId" = gr."gameweekId"
+         AND my_ta."roomId" = gr."roomId"
+         AND my_ta."playerId" = ${active.playerId}
+         AND my_ta.team IN ('A', 'B')
+        JOIN public."TeamAssignments" other_ta
+          ON other_ta."gameweekId" = gr."gameweekId"
+         AND other_ta."roomId" = gr."roomId"
+         AND other_ta."playerId" != ${active.playerId}
+         AND other_ta.team IN ('A', 'B')
+        JOIN public."Players" p ON p.id = other_ta."playerId"
+        LEFT JOIN public."Votes" v
+          ON v."gameweek_id" = gr."gameweekId"
+         AND v."roomId" = gr."roomId"
+         AND v."voting_player_id" = ${active.playerId}
+        WHERE gr."roomId" = ${active.roomId}
+          AND gr."createdAt" >= NOW() - INTERVAL '48 hours'
+          AND v.id IS NULL
+        GROUP BY gw.id, gw.date, gw.location, gw."startTime"
+      `
+
+      const availabilityNotifications = await db.sql<{
+        gameweekId: number; date: string; location: string | null; startTime: string | null
+      }>`
+        SELECT gw.id AS "gameweekId", gw.date::text, gw.location, gw."startTime"
+        FROM public."Gameweeks" gw
+        LEFT JOIN public."Availabilities" a
+          ON a."gameweekId" = gw.id
+         AND a."roomId" = gw."roomId"
+         AND a."playerId" = ${active.playerId}
+        WHERE gw."roomId" = ${active.roomId}
+          AND gw.date >= CURRENT_DATE
+          AND a.id IS NULL
+        ORDER BY gw.date ASC
+      `
+
+      const notifications = [
+        ...voteNotifications.map((n) => ({ type: 'vote' as const, ...n })),
+        ...availabilityNotifications.map((n) => ({ type: 'availability' as const, ...n })),
+      ]
+      return json(notifications)
+    }
+
     if (method === 'PATCH' && route === '/sync-avatar') {
       const body = parseBody<{ picture?: string | null }>(event)
       if (body.picture) {
