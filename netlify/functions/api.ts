@@ -989,6 +989,20 @@ export const handler: Handler = async (event) => {
       return json(result)
     }
 
+    if (method === 'POST' && route === '/recalculate-achievements') {
+      const allResults = await db.sql<{ gameweekId: number; teamA_score: number; teamB_score: number }>`
+        SELECT gr."gameweekId", gr."teamA_score", gr."teamB_score"
+        FROM public."GameResults" gr
+        JOIN public."Gameweeks" gw ON gw.id = gr."gameweekId" AND gw."roomId" = gr."roomId"
+        WHERE gr."roomId" = ${active.roomId}
+        ORDER BY gw.date ASC, gr."createdAt" ASC
+      `
+      for (const result of allResults) {
+        await awardAchievementsForGameweek(result.gameweekId, active.roomId, result.teamA_score, result.teamB_score)
+      }
+      return json({ processed: allResults.length })
+    }
+
     if (method === 'GET' && route === '/gameresults') {
       const gameResults = await db.sql`
         SELECT gr.id, gr."gameweekId", gr."teamA_score", gr."teamB_score",

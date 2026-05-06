@@ -2391,9 +2391,19 @@ function AchievementsView() {
   const [fetchError, setFetchError] = useState<string | null>(null)
 
   useEffect(() => {
-    apiFetch<FullAchievement[]>('/api/player-achievements', getAccessTokenSilently)
-      .then(setAchievements)
-      .catch((e) => setFetchError(e instanceof Error ? e.message : 'Could not load achievements'))
+    async function load() {
+      try {
+        if (!sessionStorage.getItem('ach-synced')) {
+          await apiSend('/api/recalculate-achievements', getAccessTokenSilently, {})
+          sessionStorage.setItem('ach-synced', '1')
+        }
+        const data = await apiFetch<FullAchievement[]>('/api/player-achievements', getAccessTokenSilently)
+        setAchievements(data)
+      } catch (e) {
+        setFetchError(e instanceof Error ? e.message : 'Could not load achievements')
+      }
+    }
+    load()
   }, [getAccessTokenSilently])
 
   const earned = achievements?.filter((a) => a.isCompleted) ?? []
