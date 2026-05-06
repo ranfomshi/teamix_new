@@ -908,7 +908,10 @@ function PlayersView({ room }: { room: Room }) {
       />
 
       {showAddForm ? (
-        <AddPlayerForm onCreated={() => { setShowAddForm(false); refresh() }} />
+        <AddPlayerForm
+          existingNames={(players ?? []).map((p) => p.name)}
+          onCreated={() => { setShowAddForm(false); refresh() }}
+        />
       ) : null}
 
       {editingPlayer ? (
@@ -988,12 +991,16 @@ function PlayersView({ room }: { room: Room }) {
   )
 }
 
-function AddPlayerForm({ onCreated }: { onCreated: () => void }) {
+function AddPlayerForm({ onCreated, existingNames }: { onCreated: () => void; existingNames: string[] }) {
   const { getAccessTokenSilently } = useAuth0()
   const [name, setName] = useState('')
   const [skillLevel, setSkillLevel] = useState('average')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const duplicate = name.trim()
+    ? existingNames.find((n) => n.toLowerCase() === name.trim().toLowerCase())
+    : null
 
   async function submit() {
     if (!name.trim()) return
@@ -1023,6 +1030,12 @@ function AddPlayerForm({ onCreated }: { onCreated: () => void }) {
           autoFocus
         />
       </label>
+      {duplicate && (
+        <p className="field-warning">
+          There's already a player called <strong>{duplicate}</strong> in this room.
+          Consider adding a last name or initial — e.g. <em>{name.trim().split(' ')[0]} B.</em>
+        </p>
+      )}
       <SkillLevelField value={skillLevel} onChange={setSkillLevel} />
       <button className="primary-action compact" type="button" onClick={submit} disabled={busy || !name.trim()}>
         Add player
@@ -1130,6 +1143,9 @@ function FixturesView({ room }: { room: Room }) {
 
       {showNewFixture ? (
         <NewFixtureForm
+          pastLocations={[...new Set(
+            (fixtures ?? []).map((f) => f.location).filter((l): l is string => Boolean(l))
+          )]}
           onCreated={() => {
             setShowNewFixture(false)
             setRefreshKey((key) => key + 1)
@@ -1167,7 +1183,7 @@ function FixturesView({ room }: { room: Room }) {
   )
 }
 
-function NewFixtureForm({ onCreated }: { onCreated: () => void }) {
+function NewFixtureForm({ onCreated, pastLocations }: { onCreated: () => void; pastLocations: string[] }) {
   const { getAccessTokenSilently } = useAuth0()
   const [date, setDate] = useState('')
   const [startTime, setStartTime] = useState('')
@@ -1207,7 +1223,17 @@ function NewFixtureForm({ onCreated }: { onCreated: () => void }) {
       </label>
       <label>
         Location
-        <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Powerleague, pitch 3" />
+        <input
+          list="past-locations"
+          value={location}
+          onChange={(event) => setLocation(event.target.value)}
+          placeholder="Powerleague, pitch 3"
+        />
+        {pastLocations.length > 0 && (
+          <datalist id="past-locations">
+            {pastLocations.map((loc) => <option key={loc} value={loc} />)}
+          </datalist>
+        )}
       </label>
       <label>
         Max players
