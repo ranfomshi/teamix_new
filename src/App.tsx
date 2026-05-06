@@ -1271,6 +1271,7 @@ function FixtureCard({
   const [detail, setDetail] = useState<FixtureDetail>({})
   const [detailKey, setDetailKey] = useState(0)
   const [gameResult, setGameResult] = useState(fixture.gameResult)
+  const [localPoM, setLocalPoM] = useState(fixture.playerOfTheMatch ?? [])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [adminAction, setAdminAction] = useState<AdminAction>(null)
@@ -1360,6 +1361,8 @@ function FixtureCard({
         gameweekId: fixture.id,
         votedPlayerId: playerId,
       })
+      const updated = await apiFetch<Gameweek>(`/api/gameweeks/${fixture.id}`, getAccessTokenSilently)
+      setLocalPoM(updated.playerOfTheMatch ?? [])
       setDetailKey((key) => key + 1)
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Could not cast vote')
@@ -1388,6 +1391,12 @@ function FixtureCard({
         <div>
           <h3>{fixture.location ?? 'Fixture'}</h3>
           <p>{fixture.startTime ?? 'Time TBC'} · max {fixture.maxPlayers ?? 'open'}</p>
+          {localPoM.length > 0 && gameResult ? (
+            <span className="fixture-pom-line">
+              <Trophy size={10} />
+              {localPoM.map((p) => p.name).join(' & ')}
+            </span>
+          ) : null}
         </div>
         <ResultBadge fixture={{ ...fixture, gameResult }} />
         <ChevronDown className="expand-icon" size={18} />
@@ -1428,7 +1437,7 @@ function FixtureCard({
 
           {gameResult ? (
             <MatchAwards
-              playerOfTheMatch={fixture.playerOfTheMatch ?? []}
+              playerOfTheMatch={localPoM}
               votingCloseTime={fixture.votingCloseTime ?? null}
             />
           ) : null}
@@ -1535,20 +1544,32 @@ function MatchAwards({
   votingCloseTime: string | null
 }) {
   const votingClosed = votingCloseTime ? Date.now() > new Date(votingCloseTime).getTime() : true
+  const hasWinner = playerOfTheMatch.length > 0
+  const isTie = playerOfTheMatch.length > 1
+  const votes = playerOfTheMatch[0]?.votes ?? 0
 
   return (
     <div className="awards-panel">
-      <div>
-        <Trophy size={17} />
-        <strong>Player of the match</strong>
+      <div className="awards-header">
+        <Trophy size={15} />
+        <span>Player of the Match</span>
       </div>
-      {playerOfTheMatch.length > 0 ? (
-        <p>{playerOfTheMatch.map((player) => `${player.name} (${player.votes})`).join(', ')}</p>
+      {hasWinner ? (
+        <div className="pom-winner">
+          <strong>{playerOfTheMatch.map((p) => p.name).join(' & ')}</strong>
+          <span className="pom-votes">
+            {isTie ? `${votes} votes each` : `${votes} vote${votes !== 1 ? 's' : ''}`}
+          </span>
+        </div>
       ) : (
-        <p>No votes yet.</p>
+        <p className="pom-empty">No votes recorded yet</p>
       )}
       {votingCloseTime ? (
-        <span>{votingClosed ? 'Voting closed' : `Voting closes ${new Date(votingCloseTime).toLocaleString()}`}</span>
+        <span className="pom-status">
+          {votingClosed
+            ? 'Voting closed'
+            : `Voting open · closes ${new Date(votingCloseTime).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}`}
+        </span>
       ) : null}
     </div>
   )

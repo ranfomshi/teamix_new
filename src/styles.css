@@ -1248,7 +1248,63 @@ button {
 .result-form,
 .availability-control,
 .admin-availability-panel,
-.awards-panel,
+.awards-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgb(245 200 75 / 30%);
+  border-radius: 8px;
+  background: rgb(245 200 75 / 6%);
+  padding: 12px;
+}
+
+.awards-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--gold);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pom-winner {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pom-winner strong {
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+
+.pom-votes {
+  font-size: 0.78rem;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.pom-empty,
+.pom-status {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.fixture-pom-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: var(--gold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .vote-panel,
 .rating-history {
   display: grid;
@@ -1257,19 +1313,6 @@ button {
   border-radius: 8px;
   background: rgb(255 255 255 / 5%);
   padding: 12px;
-}
-
-.awards-panel > div {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--gold);
-}
-
-.awards-panel p,
-.awards-panel span {
-  margin: 0;
-  color: var(--muted);
 }
 
 .vote-panel div {
