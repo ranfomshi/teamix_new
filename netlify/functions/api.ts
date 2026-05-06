@@ -1033,7 +1033,7 @@ export const handler: Handler = async (event) => {
          AND a."playerId" = ${active.playerId}
         WHERE gw."roomId" = ${active.roomId}
           AND gw.date >= CURRENT_DATE
-          AND a.id IS NULL
+          AND a."playerId" IS NULL
         ORDER BY gw.date ASC
       `
 
