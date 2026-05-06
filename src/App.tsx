@@ -883,7 +883,7 @@ function sortPlayers(players: Player[], by: SortKey, dir: 'asc' | 'desc'): Playe
 }
 
 function PlayersView({ room }: { room: Room }) {
-  const { getAccessTokenSilently } = useAuth0()
+  const { getAccessTokenSilently, user } = useAuth0()
   const [players, setPlayers] = useState<Player[] | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -999,6 +999,12 @@ function PlayersView({ room }: { room: Room }) {
 
       {fetchError ? <InlineError message={fetchError} /> : null}
       {!players && !fetchError ? <SkeletonList /> : null}
+      {players?.length === 0 ? (
+        <div className="empty-panel">
+          <UsersRound size={32} strokeWidth={1.2} />
+          <p>No players yet. Add your squad members to get started.</p>
+        </div>
+      ) : null}
 
       <div className="list-stack">
         {sorted.map((player, index) => (
@@ -1008,6 +1014,7 @@ function PlayersView({ room }: { room: Room }) {
             rank={index + 1}
             room={room}
             getAccessTokenSilently={getAccessTokenSilently}
+            currentUserPicture={player.id === room.playerId ? (user?.picture ?? null) : null}
             onEdit={room.isAdmin ? () => { setEditingPlayer(player); setDeletingPlayer(null); setShowAddForm(false) } : undefined}
             onDelete={room.isAdmin ? () => { setDeletingPlayer(player); setEditingPlayer(null); setShowAddForm(false) } : undefined}
           />
@@ -1194,6 +1201,12 @@ function FixturesView({ room }: { room: Room }) {
 
       {error ? <InlineError message={error} /> : null}
       {!fixtures && !error ? <SkeletonList /> : null}
+      {fixtures?.length === 0 ? (
+        <div className="empty-panel">
+          <CalendarDays size={32} strokeWidth={1.2} />
+          <p>No fixtures yet.{room.isAdmin ? ' Tap New to schedule your first match.' : ' Ask your admin to add a fixture.'}</p>
+        </div>
+      ) : null}
 
       <div className="fixture-list">
         {fixtures?.map((fixture) => (
@@ -2525,6 +2538,13 @@ function AchievementsView() {
             </div>
           </div>
 
+          {earned.length === 0 ? (
+            <div className="empty-panel">
+              <Trophy size={32} strokeWidth={1.2} />
+              <p>No trophies yet — play some games and the wins will come.</p>
+            </div>
+          ) : null}
+
           {earned.length > 0 ? (
             <div className="ach-group">
               <h2 className="ach-group-label">Earned</h2>
@@ -2602,6 +2622,7 @@ function PlayerRow({
   rank,
   room,
   getAccessTokenSilently,
+  currentUserPicture,
   onEdit,
   onDelete,
 }: {
@@ -2609,6 +2630,7 @@ function PlayerRow({
   rank: number
   room: Room
   getAccessTokenSilently: () => Promise<string>
+  currentUserPicture?: string | null
   onEdit?: () => void
   onDelete?: () => void
 }) {
@@ -2642,7 +2664,9 @@ function PlayerRow({
         <button className="player-toggle" type="button" onClick={() => setExpanded((e) => !e)}>
           <div className="rank">{rank}</div>
           <div className="avatar" style={{ borderColor: rank % 2 ? room.teamAColor : room.teamBColor }}>
-            {player.profilePicture ? <img src={player.profilePicture} alt="" /> : initials(player.name)}
+            {(player.profilePicture ?? currentUserPicture)
+              ? <img src={(player.profilePicture ?? currentUserPicture)!} alt="" />
+              : initials(player.name)}
           </div>
           <div className="player-main">
             <strong>{player.name}</strong>
