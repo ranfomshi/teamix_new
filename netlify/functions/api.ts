@@ -523,6 +523,94 @@ export const handler: Handler = async (event) => {
 
     const playerMatch = route.match(/^\/players\/(\d+)$/)
     const playerLinkMatch = route.match(/^\/players\/(\d+)\/link$/)
+    const playerCombosMatch = route.match(/^\/players\/(\d+)\/combos$/)
+    if (playerCombosMatch && method === 'GET') {
+      const playerId = Number(playerCombosMatch[1])
+      const allies = await db.sql<{
+        partnerId: number; name: string; profilePicture: string | null
+        games: number; wins: number; draws: number; losses: number
+      }>`
+        SELECT
+          ta2."playerId" AS "partnerId",
+          p.name,
+          p."profilePicture",
+          COUNT(*)::int AS games,
+          COUNT(*) FILTER (
+            WHERE (ta1.team = 'A' AND gr."teamA_score" > gr."teamB_score")
+               OR (ta1.team = 'B' AND gr."teamB_score" > gr."teamA_score")
+          )::int AS wins,
+          COUNT(*) FILTER (
+            WHERE gr."teamA_score" = gr."teamB_score"
+          )::int AS draws,
+          COUNT(*) FILTER (
+            WHERE (ta1.team = 'A' AND gr."teamA_score" < gr."teamB_score")
+               OR (ta1.team = 'B' AND gr."teamB_score" < gr."teamA_score")
+          )::int AS losses
+        FROM public."TeamAssignments" ta1
+        JOIN public."TeamAssignments" ta2
+          ON ta2."gameweekId" = ta1."gameweekId"
+         AND ta2."roomId" = ta1."roomId"
+         AND ta2.team = ta1.team
+         AND ta2."playerId" != ta1."playerId"
+        JOIN public."GameResults" gr
+          ON gr."gameweekId" = ta1."gameweekId"
+         AND gr."roomId" = ta1."roomId"
+        JOIN public."Players" p ON p.id = ta2."playerId"
+        WHERE ta1."playerId" = ${playerId}
+          AND ta1."roomId" = ${active.roomId}
+          AND ta1.team IN ('A', 'B')
+        GROUP BY ta2."playerId", p.name, p."profilePicture"
+        HAVING COUNT(*) >= 3
+        ORDER BY COUNT(*) FILTER (
+          WHERE (ta1.team = 'A' AND gr."teamA_score" > gr."teamB_score")
+             OR (ta1.team = 'B' AND gr."teamB_score" > gr."teamA_score")
+        )::float / COUNT(*) DESC
+        LIMIT 5
+      `
+      const opponents = await db.sql<{
+        partnerId: number; name: string; profilePicture: string | null
+        games: number; wins: number; draws: number; losses: number
+      }>`
+        SELECT
+          ta2."playerId" AS "partnerId",
+          p.name,
+          p."profilePicture",
+          COUNT(*)::int AS games,
+          COUNT(*) FILTER (
+            WHERE (ta1.team = 'A' AND gr."teamA_score" > gr."teamB_score")
+               OR (ta1.team = 'B' AND gr."teamB_score" > gr."teamA_score")
+          )::int AS wins,
+          COUNT(*) FILTER (
+            WHERE gr."teamA_score" = gr."teamB_score"
+          )::int AS draws,
+          COUNT(*) FILTER (
+            WHERE (ta1.team = 'A' AND gr."teamA_score" < gr."teamB_score")
+               OR (ta1.team = 'B' AND gr."teamB_score" < gr."teamA_score")
+          )::int AS losses
+        FROM public."TeamAssignments" ta1
+        JOIN public."TeamAssignments" ta2
+          ON ta2."gameweekId" = ta1."gameweekId"
+         AND ta2."roomId" = ta1."roomId"
+         AND ta2.team != ta1.team
+         AND ta2."playerId" != ta1."playerId"
+        JOIN public."GameResults" gr
+          ON gr."gameweekId" = ta1."gameweekId"
+         AND gr."roomId" = ta1."roomId"
+        JOIN public."Players" p ON p.id = ta2."playerId"
+        WHERE ta1."playerId" = ${playerId}
+          AND ta1."roomId" = ${active.roomId}
+          AND ta1.team IN ('A', 'B')
+        GROUP BY ta2."playerId", p.name, p."profilePicture"
+        HAVING COUNT(*) >= 3
+        ORDER BY COUNT(*) FILTER (
+          WHERE (ta1.team = 'A' AND gr."teamA_score" > gr."teamB_score")
+             OR (ta1.team = 'B' AND gr."teamB_score" > gr."teamA_score")
+        )::float / COUNT(*) ASC
+        LIMIT 5
+      `
+      return json({ allies, opponents })
+    }
+
     if (playerLinkMatch && method === 'PUT') {
       const playerId = Number(playerLinkMatch[1])
       const [linked] = await db.sql`

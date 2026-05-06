@@ -95,6 +95,18 @@ type HasVotedResponse = {
 
 type NotifPlayer = { id: number; name: string; profilePicture: string | null }
 
+type ComboEntry = {
+  partnerId: number
+  name: string
+  profilePicture: string | null
+  games: number
+  wins: number
+  draws: number
+  losses: number
+}
+
+type PlayerCombos = { allies: ComboEntry[]; opponents: ComboEntry[] }
+
 type AppNotification =
   | { type: 'vote'; gameweekId: number; date: string; location: string | null; startTime: string | null; players: NotifPlayer[] }
   | { type: 'availability'; gameweekId: number; date: string; location: string | null; startTime: string | null }
@@ -2376,7 +2388,10 @@ function PlayerRow({
   onEdit?: () => void
   onDelete?: () => void
 }) {
+  const { getAccessTokenSilently } = useAuth0()
   const [expanded, setExpanded] = useState(false)
+  const [combos, setCombos] = useState<PlayerCombos | null>(null)
+  const [combosLoading, setCombosLoading] = useState(false)
   const wins = player.wins ?? 0
   const draws = player.draws ?? 0
   const losses = player.losses ?? 0
@@ -2384,6 +2399,15 @@ function PlayerRow({
   const ga = player.goalsAgainst ?? 0
   const played = wins + draws + losses
   const form = player.recentForm ?? []
+
+  useEffect(() => {
+    if (!expanded || combos !== null || combosLoading) return
+    setCombosLoading(true)
+    apiFetch<PlayerCombos>(`/api/players/${player.id}/combos`, getAccessTokenSilently)
+      .then((data) => setCombos(data))
+      .catch(() => setCombos({ allies: [], opponents: [] }))
+      .finally(() => setCombosLoading(false))
+  }, [expanded, combos, combosLoading, player.id, getAccessTokenSilently])
 
   return (
     <article className={`player-card${expanded ? ' expanded' : ''}`}>
@@ -2436,9 +2460,49 @@ function PlayerRow({
             <div><span>Goals/game</span><strong>{played > 0 ? (gf / played).toFixed(1) : '—'}</strong></div>
             <div><span>Rating</span><strong>{Math.round(Number(player.rating))}</strong></div>
           </div>
+          {combosLoading ? (
+            <p className="combos-loading">Loading combos…</p>
+          ) : combos && (combos.allies.length > 0 || combos.opponents.length > 0) ? (
+            <div className="combos-section">
+              {combos.allies.length > 0 ? (
+                <div className="combo-group">
+                  <h4 className="combo-group-title ally">Best with</h4>
+                  {combos.allies.map((c) => (
+                    <ComboRow key={c.partnerId} entry={c} variant="ally" />
+                  ))}
+                </div>
+              ) : null}
+              {combos.opponents.length > 0 ? (
+                <div className="combo-group">
+                  <h4 className="combo-group-title nemesis">Toughest against</h4>
+                  {combos.opponents.map((c) => (
+                    <ComboRow key={c.partnerId} entry={c} variant="nemesis" />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : combos ? (
+            <p className="combos-empty">Need 3+ shared games for combo stats</p>
+          ) : null}
         </div>
       ) : null}
     </article>
+  )
+}
+
+function ComboRow({ entry, variant }: { entry: ComboEntry; variant: 'ally' | 'nemesis' }) {
+  const winPct = entry.games > 0 ? Math.round((entry.wins / entry.games) * 100) : 0
+  return (
+    <div className={`combo-row combo-row--${variant}`}>
+      <div className="combo-avatar">
+        {entry.profilePicture
+          ? <img src={entry.profilePicture} alt="" />
+          : initials(entry.name)}
+      </div>
+      <span className="combo-name">{entry.name}</span>
+      <span className="combo-record">{entry.wins}W·{entry.draws}D·{entry.losses}L</span>
+      <span className="combo-pct">{winPct}%</span>
+    </div>
   )
 }
 

@@ -1558,6 +1558,111 @@ button {
   font-size: 1.1rem;
 }
 
+.combos-section {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.combos-loading,
+.combos-empty {
+  margin-top: 12px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.combo-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.combo-group-title {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 2px;
+}
+
+.combo-group-title.ally {
+  color: var(--grass);
+}
+
+.combo-group-title.nemesis {
+  color: var(--danger);
+}
+
+.combo-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 4%);
+  border: 1px solid var(--line);
+}
+
+.combo-row--ally {
+  border-color: rgb(40 209 124 / 25%);
+}
+
+.combo-row--nemesis {
+  border-color: rgb(255 111 97 / 25%);
+}
+
+.combo-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--panel-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.combo-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.combo-name {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.combo-record {
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.combo-pct {
+  font-size: 0.8rem;
+  font-weight: 700;
+  min-width: 36px;
+  text-align: right;
+}
+
+.combo-row--ally .combo-pct {
+  color: var(--grass);
+}
+
+.combo-row--nemesis .combo-pct {
+  color: var(--danger);
+}
+
 .rating-history {
   margin-top: 10px;
 }
