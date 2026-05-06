@@ -1741,6 +1741,7 @@ async function getEligibleAchievementIds({
 }
 
 async function getPlayerResultHistory(playerId: number, roomId: number, limit: number, maxGameweekId?: number) {
+  const ceiling = maxGameweekId ?? 2147483647
   return db.sql<{ gameweekId: number; team: string; outcome: 'W' | 'D' | 'L' }>`
     SELECT gw.id AS "gameweekId", ta.team,
            CASE
@@ -1757,7 +1758,7 @@ async function getPlayerResultHistory(playerId: number, roomId: number, limit: n
     WHERE ta."roomId" = ${roomId}
       AND ta."playerId" = ${playerId}
       AND ta.team IN ('A', 'B')
-      AND (${maxGameweekId ?? null} IS NULL OR gw.id <= ${maxGameweekId ?? null})
+      AND gw.id <= ${ceiling}
     ORDER BY gw.date DESC, gw.id DESC
     LIMIT ${limit}
   `
