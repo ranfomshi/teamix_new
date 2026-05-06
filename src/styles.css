@@ -885,7 +885,7 @@ button {
   left: 12px;
   z-index: 6;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -1634,6 +1634,116 @@ button {
   font-size: 0.75rem;
   font-weight: 700;
   cursor: default;
+}
+
+.ach-progress-bar-wrap {
+  display: grid;
+  gap: 6px;
+}
+
+.ach-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.ach-progress-track {
+  height: 7px;
+  border-radius: 4px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.ach-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--gold);
+  transition: width 0.4s ease;
+}
+
+.ach-group {
+  display: grid;
+  gap: 8px;
+}
+
+.ach-group-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin: 0;
+  color: var(--gold);
+}
+
+.ach-group-label.locked {
+  color: var(--muted);
+}
+
+.ach-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ach-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+
+.ach-card--earned {
+  border-color: rgb(245 200 75 / 30%);
+  background: rgb(245 200 75 / 6%);
+}
+
+.ach-card--locked {
+  background: rgb(255 255 255 / 3%);
+  opacity: 0.65;
+}
+
+.ach-icon {
+  flex: 0 0 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 6%);
+}
+
+.ach-card--earned .ach-icon {
+  background: rgb(245 200 75 / 15%);
+  color: var(--gold);
+}
+
+.ach-card--locked .ach-icon {
+  color: var(--muted);
+}
+
+.ach-body {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ach-body strong {
+  font-size: 0.9rem;
+}
+
+.ach-body span {
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.ach-date {
+  font-size: 0.72rem !important;
+  color: var(--gold) !important;
+  font-weight: 700;
 }
 
 .combos-section {

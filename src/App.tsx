@@ -8,6 +8,7 @@ import {
   ChevronDown,
   CircleUserRound,
   ClipboardList,
+  Lock,
   LogOut,
   Pencil,
   Plus,
@@ -112,6 +113,14 @@ type AchievementEntry = {
   title: string
   description: string
   earnedAt: string
+}
+
+type FullAchievement = {
+  id: number
+  title: string
+  description: string
+  isCompleted: boolean
+  earnedAt: string | null
 }
 
 type AppNotification =
@@ -269,6 +278,7 @@ function AuthenticatedShell() {
         <Routes>
           <Route path="/players" element={<PlayersView room={apiState.activeRoom} />} />
           <Route path="/fixtures" element={<FixturesView room={apiState.activeRoom} />} />
+          <Route path="/achievements" element={<AchievementsView />} />
           <Route
             path="/account"
             element={
@@ -2363,11 +2373,90 @@ function BottomNav() {
         <CalendarDays size={21} />
         <span>Fixtures</span>
       </NavLink>
+      <NavLink to="/achievements">
+        <Trophy size={21} />
+        <span>Trophies</span>
+      </NavLink>
       <NavLink to="/account">
         <CircleUserRound size={21} />
         <span>Account</span>
       </NavLink>
     </nav>
+  )
+}
+
+function AchievementsView() {
+  const { getAccessTokenSilently } = useAuth0()
+  const [achievements, setAchievements] = useState<FullAchievement[] | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
+  useEffect(() => {
+    apiFetch<FullAchievement[]>('/api/player-achievements', getAccessTokenSilently)
+      .then(setAchievements)
+      .catch((e) => setFetchError(e instanceof Error ? e.message : 'Could not load achievements'))
+  }, [getAccessTokenSilently])
+
+  const earned = achievements?.filter((a) => a.isCompleted) ?? []
+  const locked = achievements?.filter((a) => !a.isCompleted) ?? []
+  const total = achievements?.length ?? 0
+
+  return (
+    <section className="screen">
+      <ScreenHeader eyebrow="Your progress" title="Trophies" />
+      {fetchError ? <InlineError message={fetchError} /> : null}
+      {!achievements && !fetchError ? <SkeletonList /> : null}
+      {achievements ? (
+        <>
+          <div className="ach-progress-bar-wrap">
+            <div className="ach-progress-label">
+              <span>{earned.length} of {total} earned</span>
+              <span>{total > 0 ? Math.round((earned.length / total) * 100) : 0}%</span>
+            </div>
+            <div className="ach-progress-track">
+              <div className="ach-progress-fill" style={{ width: `${total > 0 ? (earned.length / total) * 100 : 0}%` }} />
+            </div>
+          </div>
+
+          {earned.length > 0 ? (
+            <div className="ach-group">
+              <h2 className="ach-group-label">Earned</h2>
+              <div className="ach-list">
+                {earned.map((a) => <AchievementCard key={a.id} achievement={a} />)}
+              </div>
+            </div>
+          ) : null}
+
+          {locked.length > 0 ? (
+            <div className="ach-group">
+              <h2 className="ach-group-label locked">Locked</h2>
+              <div className="ach-list">
+                {locked.map((a) => <AchievementCard key={a.id} achievement={a} />)}
+              </div>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+    </section>
+  )
+}
+
+function AchievementCard({ achievement }: { achievement: FullAchievement }) {
+  const earned = achievement.isCompleted
+  const date = achievement.earnedAt
+    ? new Date(achievement.earnedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+    : null
+
+  return (
+    <div className={`ach-card${earned ? ' ach-card--earned' : ' ach-card--locked'}`}>
+      <div className="ach-icon">
+        {earned ? <Trophy size={20} /> : <Lock size={18} />}
+      </div>
+      <div className="ach-body">
+        <strong>{achievement.title}</strong>
+        <span>{achievement.description}</span>
+        {date ? <span className="ach-date">Earned {date}</span> : null}
+      </div>
+    </div>
   )
 }
 
