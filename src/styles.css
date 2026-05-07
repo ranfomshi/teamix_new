@@ -779,9 +779,8 @@ button {
 .admin-badge {
   display: inline-flex;
   align-items: center;
-  color: var(--grass);
+  color: var(--gold);
   flex-shrink: 0;
-  opacity: 0.85;
 }
 
 .player-main strong,
@@ -790,6 +789,14 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.player-main .player-name-row {
+  display: flex;
+}
+
+.player-main .player-name-row strong {
+  display: inline;
 }
 
 .player-main .form-bars {
