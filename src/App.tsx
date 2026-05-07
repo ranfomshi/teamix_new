@@ -2225,7 +2225,7 @@ function RoomMembersPanel({ room, onRoomChanged }: { room: Room; onRoomChanged: 
           <div>
             <span className="player-name-row">
               <strong>{member.name}</strong>
-              {member.isAdmin ? <span className="admin-badge" title="Room admin"><Shield size={11} /></span> : null}
+              {member.isAdmin ? <span className="admin-badge" title="Room admin"><Shield size={11} fill="currentColor" /></span> : null}
             </span>
             <span>
               {member.isAdmin ? 'Admin' : 'Player'} {member.isLinked ? ' - linked' : ' - unlinked'}
@@ -2815,7 +2815,7 @@ function PlayerRow({
           <div className="player-main">
             <span className="player-name-row">
               <strong>{player.name}</strong>
-              {player.isAdmin ? <span className="admin-badge" title="Room admin"><Shield size={11} /></span> : null}
+              {player.isAdmin ? <span className="admin-badge" title="Room admin"><Shield size={11} fill="currentColor" /></span> : null}
             </span>
             {played > 0 ? (
               <span className="form-bars" aria-hidden="true">
