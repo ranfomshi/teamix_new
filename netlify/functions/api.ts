@@ -557,6 +557,46 @@ export const handler: Handler = async (event) => {
       return json(player, 201)
     }
 
+    if (route === '/api/team-chemistry' && method === 'POST') {
+      const { teamAIds, teamBIds } = parseBody<{ teamAIds: number[]; teamBIds: number[] }>(event)
+
+      async function calcChemistry(playerIds: number[]): Promise<number | null> {
+        if (playerIds.length < 2) return null
+        const [row] = await db.sql<{ chemistry: number | null }>`
+          SELECT AVG(wins::float / NULLIF(games, 0)) AS chemistry
+          FROM (
+            SELECT
+              COUNT(*)::int AS games,
+              COUNT(*) FILTER (
+                WHERE (ta1.team = 'A' AND gr."teamA_score" > gr."teamB_score")
+                   OR (ta1.team = 'B' AND gr."teamB_score" > gr."teamA_score")
+              )::int AS wins
+            FROM public."TeamAssignments" ta1
+            JOIN public."TeamAssignments" ta2
+              ON ta2."gameweekId" = ta1."gameweekId"
+             AND ta2."roomId" = ta1."roomId"
+             AND ta2.team = ta1.team
+             AND ta2."playerId" > ta1."playerId"
+            JOIN public."GameResults" gr
+              ON gr."gameweekId" = ta1."gameweekId"
+             AND gr."roomId" = ta1."roomId"
+            WHERE ta1."playerId" = ANY(${playerIds})
+              AND ta2."playerId" = ANY(${playerIds})
+              AND ta1."roomId" = ${active.roomId}
+            GROUP BY ta1."playerId", ta2."playerId"
+            HAVING COUNT(*) >= 2
+          ) pairs
+        `
+        return row?.chemistry ?? null
+      }
+
+      const [teamA, teamB] = await Promise.all([
+        calcChemistry(teamAIds),
+        calcChemistry(teamBIds),
+      ])
+      return json({ teamA, teamB })
+    }
+
     const playerMatch = route.match(/^\/players\/(\d+)$/)
     const playerLinkMatch = route.match(/^\/players\/(\d+)\/link$/)
     const playerCombosMatch = route.match(/^\/players\/(\d+)\/combos$/)

@@ -112,6 +112,8 @@ type ComboEntry = {
 
 type PlayerCombos = { allies: ComboEntry[]; opponents: ComboEntry[] }
 
+type TeamChemistry = { teamA: number | null; teamB: number | null }
+
 type AchievementEntry = {
   id: number
   title: string
@@ -1444,6 +1446,7 @@ function FixtureCard({
   const [adminAction, setAdminAction] = useState<AdminAction>(null)
   const [deleting, setDeleting] = useState(false)
   const [savingAvailability, setSavingAvailability] = useState(false)
+  const [chemistry, setChemistry] = useState<TeamChemistry | null>(null)
 
   useEffect(() => {
     setGameResult(fixture.gameResult)
@@ -1473,6 +1476,18 @@ function FixtureCard({
     loadDetail()
     return () => { mounted = false }
   }, [detailKey, expanded, fixture.id, getAccessTokenSilently])
+
+  useEffect(() => { setChemistry(null) }, [detailKey])
+
+  useEffect(() => {
+    if (!detail.assignments || chemistry !== null) return
+    const teamAIds = detail.assignments.filter((a) => a.team === 'A').map((a) => a.Player.id)
+    const teamBIds = detail.assignments.filter((a) => a.team === 'B').map((a) => a.Player.id)
+    if (teamAIds.length < 2 && teamBIds.length < 2) return
+    apiSend<TeamChemistry>('/api/team-chemistry', getAccessTokenSilently, { teamAIds, teamBIds })
+      .then((data) => { if (data) setChemistry(data) })
+      .catch(() => {})
+  }, [detail.assignments, chemistry, getAccessTokenSilently])
 
   async function assignPlayer(playerId: number, team: 'A' | 'B' | 'bench') {
     setError(null)
@@ -1627,6 +1642,13 @@ function FixtureCard({
                 <TeamList title="Team A" color={room.teamAColor ?? '#28d17c'} players={teamAPlayers} />
                 <TeamList title="Team B" color={room.teamBColor ?? '#f5c84b'} players={teamBPlayers} />
               </div>
+              <TeamInsights
+                teamAPlayers={teamAPlayers}
+                teamBPlayers={teamBPlayers}
+                teamAColor={room.teamAColor ?? '#28d17c'}
+                teamBColor={room.teamBColor ?? '#f5c84b'}
+                chemistry={chemistry}
+              />
             </div>
           ) : (
             detail.availability ? (
@@ -1751,6 +1773,94 @@ function FixtureCard({
         </div>
       ) : null}
     </article>
+  )
+}
+
+function TeamInsights({
+  teamAPlayers,
+  teamBPlayers,
+  teamAColor,
+  teamBColor,
+  chemistry,
+}: {
+  teamAPlayers: Player[]
+  teamBPlayers: Player[]
+  teamAColor: string
+  teamBColor: string
+  chemistry: TeamChemistry | null
+}) {
+  const avgA = teamAPlayers.length
+    ? teamAPlayers.reduce((s, p) => s + Number(p.rating), 0) / teamAPlayers.length
+    : 0
+  const avgB = teamBPlayers.length
+    ? teamBPlayers.reduce((s, p) => s + Number(p.rating), 0) / teamBPlayers.length
+    : 0
+
+  const chemA = chemistry?.teamA ?? null
+  const chemB = chemistry?.teamB ?? null
+  const hasChemistry = chemA !== null || chemB !== null
+
+  if (avgA === 0 && avgB === 0) return null
+
+  return (
+    <div className="team-insights">
+      <InsightRow
+        labelA={Math.round(avgA).toString()}
+        labelB={Math.round(avgB).toString()}
+        label="Avg rating"
+        aWins={avgA > avgB}
+        bWins={avgB > avgA}
+        colorA={teamAColor}
+        colorB={teamBColor}
+        winnerLabel="Favourite"
+      />
+      {hasChemistry ? (
+        <InsightRow
+          labelA={chemA !== null ? `${Math.round(chemA * 100)}%` : '—'}
+          labelB={chemB !== null ? `${Math.round(chemB * 100)}%` : '—'}
+          label="Chemistry"
+          aWins={(chemA ?? -1) > (chemB ?? -1)}
+          bWins={(chemB ?? -1) > (chemA ?? -1)}
+          colorA={teamAColor}
+          colorB={teamBColor}
+          winnerLabel="Better"
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function InsightRow({
+  labelA,
+  labelB,
+  label,
+  aWins,
+  bWins,
+  colorA,
+  colorB,
+  winnerLabel,
+}: {
+  labelA: string
+  labelB: string
+  label: string
+  aWins: boolean
+  bWins: boolean
+  colorA: string
+  colorB: string
+  winnerLabel: string
+}) {
+  return (
+    <>
+      <div className={`insight-val${aWins ? ' winner' : ''}`} style={aWins ? { color: colorA } : undefined}>
+        {labelA}
+        {aWins ? <span className="insight-winner-dot" style={{ background: colorA }} title={winnerLabel} /> : null}
+      </div>
+      <div className="insight-label">{label}</div>
+      <div className={`insight-val right${bWins ? ' winner' : ''}`} style={bWins ? { color: colorB } : undefined}>
+        {bWins ? <span className="insight-winner-dot" style={{ background: colorB }} title={winnerLabel} /> : null}
+        {labelB}
+      </div>
+    </>
   )
 }
 
