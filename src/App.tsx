@@ -1818,6 +1818,8 @@ function TeamInsights({
           bWins={(chemB ?? -1) > (chemA ?? -1)}
           colorA={teamAColor}
           colorB={teamBColor}
+          valueA={chemA !== null ? `${Math.round(chemA * 100)}%` : '—'}
+          valueB={chemB !== null ? `${Math.round(chemB * 100)}%` : '—'}
         />
       ) : null}
     </div>
@@ -1830,25 +1832,34 @@ function InsightRow({
   bWins,
   colorA,
   colorB,
+  valueA,
+  valueB,
 }: {
   label: string
   aWins: boolean
   bWins: boolean
   colorA: string
   colorB: string
+  valueA?: string
+  valueB?: string
 }) {
   const tied = !aWins && !bWins
+  const centerLabel = label === 'Favourite' ? 'AI prediction' : label
   return (
     <>
       <div className="insight-val" style={aWins ? { color: colorA } : undefined}>
-        {aWins ? <><span className="insight-winner-dot" style={{ background: colorA }} />{label}</> : null}
+        {valueA
+          ? <><span className="insight-winner-dot" style={aWins ? { background: colorA } : { opacity: 0 }} />{valueA}</>
+          : aWins ? <><span className="insight-winner-dot" style={{ background: colorA }} />{label}</> : null}
       </div>
       <div className="insight-label">
-        {label === 'Favourite' ? 'AI prediction' : label}
-        {tied ? <span className="insight-balanced"> · Balanced</span> : null}
+        {centerLabel}
+        {tied && !valueA ? <span className="insight-balanced"> · Balanced</span> : null}
       </div>
       <div className="insight-val right" style={bWins ? { color: colorB } : undefined}>
-        {bWins ? <>{label}<span className="insight-winner-dot" style={{ background: colorB }} /></> : null}
+        {valueB
+          ? <>{valueB}<span className="insight-winner-dot" style={bWins ? { background: colorB } : { opacity: 0 }} /></>
+          : bWins ? <>{label}<span className="insight-winner-dot" style={{ background: colorB }} /></> : null}
       </div>
     </>
   )
