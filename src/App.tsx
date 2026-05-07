@@ -186,6 +186,7 @@ function AuthenticatedShell() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
   const [fixtureRefreshKey, setFixtureRefreshKey] = useState(0)
+  const [notifRefreshKey, setNotifRefreshKey] = useState(0)
   const [pendingJoinCode, setPendingJoinCode] = useState<string | null>(null)
 
   useEffect(() => {
@@ -275,12 +276,12 @@ function AuthenticatedShell() {
 
   return (
     <div className="app-shell">
-      <TopBar room={apiState.activeRoom} userName={user?.name ?? 'Player'} getAccessTokenSilently={getAccessTokenSilently} initialNotifications={initialNotifs ?? undefined} onAvailabilityChanged={() => setFixtureRefreshKey((k) => k + 1)} />
+      <TopBar room={apiState.activeRoom} userName={user?.name ?? 'Player'} getAccessTokenSilently={getAccessTokenSilently} initialNotifications={initialNotifs ?? undefined} onAvailabilityChanged={() => setFixtureRefreshKey((k) => k + 1)} notifRefreshKey={notifRefreshKey} />
       <InstallBanner />
       <main className="app-content">
         <Routes>
           <Route path="/players" element={<PlayersView room={apiState.activeRoom} />} />
-          <Route path="/fixtures" element={<FixturesView room={apiState.activeRoom} externalRefreshKey={fixtureRefreshKey} />} />
+          <Route path="/fixtures" element={<FixturesView room={apiState.activeRoom} externalRefreshKey={fixtureRefreshKey} onResultRecorded={() => setNotifRefreshKey((k) => k + 1)} />} />
           <Route path="/achievements" element={<AchievementsView />} />
           <Route
             path="/account"
@@ -665,12 +666,14 @@ function TopBar({
   getAccessTokenSilently,
   initialNotifications,
   onAvailabilityChanged,
+  notifRefreshKey,
 }: {
   room: Room
   userName: string
   getAccessTokenSilently: () => Promise<string>
   initialNotifications?: AppNotification[]
   onAvailabilityChanged?: () => void
+  notifRefreshKey?: number
 }) {
   const [copied, setCopied] = useState(false)
 
@@ -697,7 +700,7 @@ function TopBar({
         </div>
       </div>
       <div className="top-bar-actions">
-        <NotificationBell getAccessTokenSilently={getAccessTokenSilently} playerId={room.playerId} initialNotifications={initialNotifications} onAvailabilityChanged={onAvailabilityChanged} />
+        <NotificationBell getAccessTokenSilently={getAccessTokenSilently} playerId={room.playerId} initialNotifications={initialNotifications} onAvailabilityChanged={onAvailabilityChanged} refreshKey={notifRefreshKey} />
         <button type="button" className="room-code" onClick={shareRoom}>
           {copied ? 'Copied!' : room.code}
         </button>
@@ -711,11 +714,13 @@ function NotificationBell({
   playerId,
   initialNotifications,
   onAvailabilityChanged,
+  refreshKey = 0,
 }: {
   getAccessTokenSilently: () => Promise<string>
   playerId: number
   initialNotifications?: AppNotification[]
   onAvailabilityChanged?: () => void
+  refreshKey?: number
 }) {
   function filterSeen(notifs: AppNotification[]) {
     return notifs.filter((n) => n.type !== 'achievement' || !localStorage.getItem(`ach-notif-seen-${n.achievementId}`))
@@ -728,11 +733,11 @@ function NotificationBell({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (initialNotifications !== undefined) return
+    if (refreshKey === 0 && initialNotifications !== undefined) return
     apiFetch<AppNotification[]>('/api/notifications', getAccessTokenSilently)
       .then((data) => { setNotifications(filterSeen(data)); setLoaded(true) })
       .catch(() => { setLoaded(true) })
-  }, [getAccessTokenSilently, initialNotifications])
+  }, [getAccessTokenSilently, refreshKey])
 
   function dismissAchievement(achievementId: number) {
     localStorage.setItem(`ach-notif-seen-${achievementId}`, '1')
@@ -1204,7 +1209,7 @@ type FixtureDetail = {
   hasVoted?: HasVotedResponse
 }
 
-function FixturesView({ room, externalRefreshKey = 0 }: { room: Room; externalRefreshKey?: number }) {
+function FixturesView({ room, externalRefreshKey = 0, onResultRecorded }: { room: Room; externalRefreshKey?: number; onResultRecorded?: () => void }) {
   const { getAccessTokenSilently } = useAuth0()
   const [refreshKey, setRefreshKey] = useState(0)
   const { data: fixtures, error } = useApi<Gameweek[]>(`/api/gameweeks?refresh=${refreshKey}&ext=${externalRefreshKey}`, getAccessTokenSilently)
@@ -1264,6 +1269,7 @@ function FixturesView({ room, externalRefreshKey = 0 }: { room: Room; externalRe
             fixture={fixture}
             room={room}
             onDeleted={() => setRefreshKey((key) => key + 1)}
+            onResultRecorded={onResultRecorded}
           />
         ))}
       </div>
@@ -1413,10 +1419,12 @@ function FixtureCard({
   fixture,
   room,
   onDeleted,
+  onResultRecorded,
 }: {
   fixture: Gameweek
   room: Room
   onDeleted: () => void
+  onResultRecorded?: () => void
 }) {
   const { getAccessTokenSilently } = useAuth0()
   const [expanded, setExpanded] = useState(false)
@@ -1717,6 +1725,7 @@ function FixtureCard({
                     setGameResult(savedResult)
                     setDetailKey((key) => key + 1)
                     setAdminAction(null)
+                    onResultRecorded?.()
                   }}
                 />
               ) : null}
