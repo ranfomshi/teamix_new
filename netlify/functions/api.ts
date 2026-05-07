@@ -937,6 +937,7 @@ export const handler: Handler = async (event) => {
             AND "playerId" = ${body.playerId}
             AND "roomId" = ${active.roomId}
         `
+        await recalculateIfResultExists(body.gameweekId, active.roomId)
         return json({ success: true, playerId: body.playerId, team: null })
       }
 
@@ -947,6 +948,7 @@ export const handler: Handler = async (event) => {
         DO UPDATE SET team = EXCLUDED.team, "updatedAt" = NOW()
         RETURNING id, team, "playerId", "gameweekId", "roomId"
       `
+      await recalculateIfResultExists(body.gameweekId, active.roomId)
       return json({ success: true, assignment })
     }
 
@@ -1622,6 +1624,29 @@ async function buildPairSynergyMap({
   }
 
   return pairSynergyMap
+}
+
+async function recalculateIfResultExists(gameweekId: number, roomId: number) {
+  const [existingResult] = await db.sql<{
+    teamA_score: number; teamB_score: number; date: string
+  }>`
+    SELECT gr."teamA_score", gr."teamB_score", gw.date::text
+    FROM public."GameResults" gr
+    JOIN public."Gameweeks" gw ON gw.id = gr."gameweekId" AND gw."roomId" = gr."roomId"
+    WHERE gr."gameweekId" = ${gameweekId}
+      AND gr."roomId" = ${roomId}
+  `
+  if (!existingResult) return
+
+  const gameweekDate = existingResult.date.slice(0, 10)
+  await db.sql`
+    DELETE FROM public."Ratings"
+    WHERE "roomId" = ${roomId}
+      AND date::text = ${gameweekDate}
+      AND "raterId" IS NULL
+  `
+  await updatePlayerRatings(gameweekId, roomId)
+  await awardAchievementsForGameweek(gameweekId, roomId, existingResult.teamA_score, existingResult.teamB_score)
 }
 
 async function updatePlayerRatings(gameweekId: number, roomId: number) {
