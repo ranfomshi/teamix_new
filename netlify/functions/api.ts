@@ -1172,9 +1172,23 @@ export const handler: Handler = async (event) => {
         ORDER BY gw.date ASC
       `
 
+      const achievementNotifications = await db.sql<{
+        achievementId: number; title: string; earnedAt: string
+      }>`
+        SELECT pa."achievementId", a.title, pa."earnedAt"::text AS "earnedAt"
+        FROM public."PlayerAchievements" pa
+        JOIN public."Achievements" a ON a.id = pa."achievementId"
+        WHERE pa."playerId" = ${active.playerId}
+          AND pa."roomId" = ${active.roomId}
+          AND pa."createdAt" >= NOW() - INTERVAL '14 days'
+          AND pa."earnedAt"::date >= pa."createdAt"::date - INTERVAL '7 days'
+        ORDER BY pa."earnedAt" DESC
+      `
+
       const notifications = [
         ...voteNotifications.map((n) => ({ type: 'vote' as const, ...n })),
         ...availabilityNotifications.map((n) => ({ type: 'availability' as const, ...n })),
+        ...achievementNotifications.map((n) => ({ type: 'achievement' as const, ...n })),
       ]
       return json(notifications)
     }

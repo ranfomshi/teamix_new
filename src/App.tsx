@@ -127,6 +127,7 @@ type FullAchievement = {
 type AppNotification =
   | { type: 'vote'; gameweekId: number; date: string; location: string | null; startTime: string | null; players: NotifPlayer[] }
   | { type: 'availability'; gameweekId: number; date: string; location: string | null; startTime: string | null }
+  | { type: 'achievement'; achievementId: number; title: string; earnedAt: string }
 
 
 const auth0Domain = import.meta.env.VITE_AUTH0_DOMAIN
@@ -716,7 +717,11 @@ function NotificationBell({
   initialNotifications?: AppNotification[]
   onAvailabilityChanged?: () => void
 }) {
-  const [notifications, setNotifications] = useState<AppNotification[]>(initialNotifications ?? [])
+  function filterSeen(notifs: AppNotification[]) {
+    return notifs.filter((n) => n.type !== 'achievement' || !localStorage.getItem(`ach-notif-seen-${n.achievementId}`))
+  }
+
+  const [notifications, setNotifications] = useState<AppNotification[]>(filterSeen(initialNotifications ?? []))
   const [loaded, setLoaded] = useState(initialNotifications !== undefined)
   const [open, setOpen] = useState(false)
   const [acting, setActing] = useState<number | null>(null)
@@ -725,16 +730,25 @@ function NotificationBell({
   useEffect(() => {
     if (initialNotifications !== undefined) return
     apiFetch<AppNotification[]>('/api/notifications', getAccessTokenSilently)
-      .then((data) => { setNotifications(data); setLoaded(true) })
+      .then((data) => { setNotifications(filterSeen(data)); setLoaded(true) })
       .catch(() => { setLoaded(true) })
   }, [getAccessTokenSilently, initialNotifications])
+
+  function handleBellClick() {
+    if (!open) {
+      for (const n of notifications) {
+        if (n.type === 'achievement') localStorage.setItem(`ach-notif-seen-${n.achievementId}`, '1')
+      }
+    }
+    setOpen((o) => !o)
+  }
 
   async function castVote(gameweekId: number, votedPlayerId: number) {
     setActing(gameweekId)
     setError(null)
     try {
       await apiSend('/api/votes', getAccessTokenSilently, { gameweekId, votedPlayerId })
-      setNotifications((prev) => prev.filter((n) => n.gameweekId !== gameweekId))
+      setNotifications((prev) => prev.filter((n) => n.type === 'achievement' || n.gameweekId !== gameweekId))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to cast vote')
     } finally {
@@ -747,7 +761,7 @@ function NotificationBell({
     setError(null)
     try {
       await apiSend('/api/availability', getAccessTokenSilently, { gameweekId, playerId, status })
-      setNotifications((prev) => prev.filter((n) => n.gameweekId !== gameweekId))
+      setNotifications((prev) => prev.filter((n) => n.type === 'achievement' || n.gameweekId !== gameweekId))
       onAvailabilityChanged?.()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to update availability')
@@ -766,7 +780,7 @@ function NotificationBell({
 
   return (
     <>
-      <button className="notif-bell" type="button" onClick={() => setOpen((o) => !o)} aria-label="Notifications">
+      <button className="notif-bell" type="button" onClick={handleBellClick} aria-label="Notifications">
         <Bell size={18} />
         {notifications.length > 0 && <span className="notif-count">{notifications.length}</span>}
       </button>
@@ -784,6 +798,19 @@ function NotificationBell({
               <p className="notif-empty">No pending actions — you're all caught up.</p>
             )}
             {notifications.map((n) => {
+              if (n.type === 'achievement') {
+                return (
+                  <div key={`ach-${n.achievementId}`} className="notif-card notif-card--achievement">
+                    <div className="notif-card-header">
+                      <Trophy size={14} />
+                      <strong>Trophy unlocked!</strong>
+                    </div>
+                    <p className="notif-achievement-name">{n.title}</p>
+                    <p className="notif-sub">Earned {fmtDate(n.earnedAt)}</p>
+                  </div>
+                )
+              }
+
               const isActing = acting === n.gameweekId
               const sub = [fmtDate(n.date), n.startTime, n.location].filter(Boolean).join(' · ')
 

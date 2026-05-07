@@ -383,6 +383,11 @@ button {
   gap: 6px;
 }
 
+.notif-card--achievement {
+  border-color: rgb(245 200 75 / 40%);
+  background: rgb(245 200 75 / 6%);
+}
+
 .notif-card-header {
   display: flex;
   align-items: center;
@@ -390,6 +395,17 @@ button {
   color: var(--grass);
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+.notif-card--achievement .notif-card-header {
+  color: rgb(200 155 20);
+}
+
+.notif-achievement-name {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .notif-sub {
