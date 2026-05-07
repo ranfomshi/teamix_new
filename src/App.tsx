@@ -14,6 +14,7 @@ import {
   Plus,
   Search,
   Settings,
+  Share2,
   Shield,
   Shirt,
   Trophy,
@@ -183,6 +184,7 @@ function AuthenticatedShell() {
   const [initialNotifs, setInitialNotifs] = useState<AppNotification[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const [fixtureRefreshKey, setFixtureRefreshKey] = useState(0)
   const [pendingJoinCode, setPendingJoinCode] = useState<string | null>(null)
 
   useEffect(() => {
@@ -272,12 +274,12 @@ function AuthenticatedShell() {
 
   return (
     <div className="app-shell">
-      <TopBar room={apiState.activeRoom} userName={user?.name ?? 'Player'} getAccessTokenSilently={getAccessTokenSilently} initialNotifications={initialNotifs ?? undefined} />
+      <TopBar room={apiState.activeRoom} userName={user?.name ?? 'Player'} getAccessTokenSilently={getAccessTokenSilently} initialNotifications={initialNotifs ?? undefined} onAvailabilityChanged={() => setFixtureRefreshKey((k) => k + 1)} />
       <InstallBanner />
       <main className="app-content">
         <Routes>
           <Route path="/players" element={<PlayersView room={apiState.activeRoom} />} />
-          <Route path="/fixtures" element={<FixturesView room={apiState.activeRoom} />} />
+          <Route path="/fixtures" element={<FixturesView room={apiState.activeRoom} externalRefreshKey={fixtureRefreshKey} />} />
           <Route path="/achievements" element={<AchievementsView />} />
           <Route
             path="/account"
@@ -661,11 +663,13 @@ function TopBar({
   userName,
   getAccessTokenSilently,
   initialNotifications,
+  onAvailabilityChanged,
 }: {
   room: Room
   userName: string
   getAccessTokenSilently: () => Promise<string>
   initialNotifications?: AppNotification[]
+  onAvailabilityChanged?: () => void
 }) {
   const [copied, setCopied] = useState(false)
 
@@ -692,7 +696,7 @@ function TopBar({
         </div>
       </div>
       <div className="top-bar-actions">
-        <NotificationBell getAccessTokenSilently={getAccessTokenSilently} playerId={room.playerId} initialNotifications={initialNotifications} />
+        <NotificationBell getAccessTokenSilently={getAccessTokenSilently} playerId={room.playerId} initialNotifications={initialNotifications} onAvailabilityChanged={onAvailabilityChanged} />
         <button type="button" className="room-code" onClick={shareRoom}>
           {copied ? 'Copied!' : room.code}
         </button>
@@ -705,10 +709,12 @@ function NotificationBell({
   getAccessTokenSilently,
   playerId,
   initialNotifications,
+  onAvailabilityChanged,
 }: {
   getAccessTokenSilently: () => Promise<string>
   playerId: number
   initialNotifications?: AppNotification[]
+  onAvailabilityChanged?: () => void
 }) {
   const [notifications, setNotifications] = useState<AppNotification[]>(initialNotifications ?? [])
   const [loaded, setLoaded] = useState(initialNotifications !== undefined)
@@ -742,6 +748,7 @@ function NotificationBell({
     try {
       await apiSend('/api/availability', getAccessTokenSilently, { gameweekId, playerId, status })
       setNotifications((prev) => prev.filter((n) => n.gameweekId !== gameweekId))
+      onAvailabilityChanged?.()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to update availability')
     } finally {
@@ -1155,10 +1162,10 @@ type FixtureDetail = {
   hasVoted?: HasVotedResponse
 }
 
-function FixturesView({ room }: { room: Room }) {
+function FixturesView({ room, externalRefreshKey = 0 }: { room: Room; externalRefreshKey?: number }) {
   const { getAccessTokenSilently } = useAuth0()
   const [refreshKey, setRefreshKey] = useState(0)
-  const { data: fixtures, error } = useApi<Gameweek[]>(`/api/gameweeks?refresh=${refreshKey}`, getAccessTokenSilently)
+  const { data: fixtures, error } = useApi<Gameweek[]>(`/api/gameweeks?refresh=${refreshKey}&ext=${externalRefreshKey}`, getAccessTokenSilently)
   const [showNewFixture, setShowNewFixture] = useState(false)
   const nextFixture = (fixtures ?? [])
     .filter((fixture) => new Date(fixture.date).getTime() >= Date.now())
@@ -1480,6 +1487,30 @@ function FixtureCard({
   const available = detail.availability?.filter((row) => row.status === true) ?? []
   const unavailable = detail.availability?.filter((row) => row.status === false) ?? []
   const waiting = detail.availability?.filter((row) => row.status === null) ?? []
+
+  const [shareCopied, setShareCopied] = useState(false)
+  async function shareFixture() {
+    const dateStr = new Date(localDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+    const time = localStartTime ?? 'TBC'
+    const venue = localLocation ?? 'Venue TBC'
+    const lines: string[] = [`⚽ ${dateStr} · ${time} @ ${venue}`]
+    if (teamAPlayers.length > 0 || teamBPlayers.length > 0) {
+      lines.push(`\nTeam A: ${teamAPlayers.map((p) => p.name).join(', ') || '–'}`)
+      lines.push(`Team B: ${teamBPlayers.map((p) => p.name).join(', ') || '–'}`)
+    }
+    if (detail.availability) {
+      lines.push(`\n✅ ${available.length} in · ❌ ${unavailable.length} out · ⏳ ${waiting.length} waiting`)
+    }
+    lines.push(`\n${window.location.origin}/fixtures`)
+    const text = lines.join('\n')
+    if (navigator.share) {
+      try { await navigator.share({ title: `Teamix fixture – ${dateStr}`, text }) } catch { /* cancelled */ }
+    } else {
+      await navigator.clipboard.writeText(text)
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
+    }
+  }
   const myAvailability = detail.availability?.find((row) => row.playerId === room.playerId)?.status ?? null
   const teamAPlayers = detail.assignments?.filter((item) => item.team === 'A').map((item) => item.Player) ?? []
   const teamBPlayers = detail.assignments?.filter((item) => item.team === 'B').map((item) => item.Player) ?? []
@@ -1532,14 +1563,28 @@ function FixtureCard({
 
           {detail.assignments && detail.assignments.length > 0 ? (
             <div className="draft-teams">
-              <strong>{isPast ? 'Teams' : 'Draft teams'}</strong>
+              <div className="draft-teams-header">
+                <strong>{isPast ? 'Teams' : 'Draft teams'}</strong>
+                <button type="button" className="share-fixture-btn" onClick={shareFixture}>
+                  <Share2 size={13} />
+                  {shareCopied ? 'Copied!' : 'Share'}
+                </button>
+              </div>
               <div className="team-columns">
                 <TeamList title="Team A" color={room.teamAColor ?? '#28d17c'} players={teamAPlayers} />
                 <TeamList title="Team B" color={room.teamBColor ?? '#f5c84b'} players={teamBPlayers} />
               </div>
             </div>
           ) : (
-            detail.availability ? <p className="muted-note">{isPast ? 'Teams were not recorded for this fixture.' : 'Draft teams will update as availability changes.'}</p> : null
+            detail.availability ? (
+              <div className="draft-teams-empty">
+                <p className="muted-note">{isPast ? 'Teams were not recorded for this fixture.' : 'Draft teams will update as availability changes.'}</p>
+                <button type="button" className="share-fixture-btn" onClick={shareFixture}>
+                  <Share2 size={13} />
+                  {shareCopied ? 'Copied!' : 'Share fixture'}
+                </button>
+              </div>
+            ) : null
           )}
 
           {gameResult ? (

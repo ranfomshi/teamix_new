@@ -1179,6 +1179,38 @@ button {
   font-size: 0.95rem;
 }
 
+.draft-teams-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.draft-teams-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.share-fixture-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.share-fixture-btn:hover {
+  color: var(--text);
+  border-color: var(--text);
+}
+
 .team-columns {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
