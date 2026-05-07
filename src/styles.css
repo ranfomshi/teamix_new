@@ -408,6 +408,27 @@ button {
   color: var(--ink);
 }
 
+.notif-ach-dismiss {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+.notif-ach-dismiss:hover { color: var(--ink); }
+
+.notif-ach-link {
+  font-size: 0.8rem;
+  color: rgb(200 155 20);
+  text-decoration: none;
+  align-self: flex-start;
+}
+.notif-ach-link:hover { text-decoration: underline; }
+
 .notif-sub {
   margin: 0;
   font-size: 0.8rem;

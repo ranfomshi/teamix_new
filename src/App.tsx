@@ -23,7 +23,7 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { BrowserRouter } from 'react-router-dom'
 
 type Room = {
@@ -734,12 +734,12 @@ function NotificationBell({
       .catch(() => { setLoaded(true) })
   }, [getAccessTokenSilently, initialNotifications])
 
+  function dismissAchievement(achievementId: number) {
+    localStorage.setItem(`ach-notif-seen-${achievementId}`, '1')
+    setNotifications((prev) => prev.filter((n) => n.type !== 'achievement' || n.achievementId !== achievementId))
+  }
+
   function handleBellClick() {
-    if (!open) {
-      for (const n of notifications) {
-        if (n.type === 'achievement') localStorage.setItem(`ach-notif-seen-${n.achievementId}`, '1')
-      }
-    }
     setOpen((o) => !o)
   }
 
@@ -804,9 +804,24 @@ function NotificationBell({
                     <div className="notif-card-header">
                       <Trophy size={14} />
                       <strong>Trophy unlocked!</strong>
+                      <button
+                        type="button"
+                        className="notif-ach-dismiss"
+                        aria-label="Dismiss"
+                        onClick={() => dismissAchievement(n.achievementId)}
+                      >
+                        <X size={13} />
+                      </button>
                     </div>
                     <p className="notif-achievement-name">{n.title}</p>
                     <p className="notif-sub">Earned {fmtDate(n.earnedAt)}</p>
+                    <Link
+                      to="/achievements"
+                      className="notif-ach-link"
+                      onClick={() => setOpen(false)}
+                    >
+                      View trophies →
+                    </Link>
                   </div>
                 )
               }
