@@ -1844,7 +1844,7 @@ function InsightRow({
         {aWins ? <><span className="insight-winner-dot" style={{ background: colorA }} />{label}</> : null}
       </div>
       <div className="insight-label">
-        {label === 'Favourite' ? 'Avg rating' : label}
+        {label === 'Favourite' ? 'AI prediction' : label}
         {tied ? <span className="insight-balanced"> · Balanced</span> : null}
       </div>
       <div className="insight-val right" style={bWins ? { color: colorB } : undefined}>
