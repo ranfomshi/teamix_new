@@ -2223,7 +2223,10 @@ function RoomMembersPanel({ room, onRoomChanged }: { room: Room; onRoomChanged: 
       {data?.members.map((member) => (
         <div className="member-row" key={member.playerId}>
           <div>
-            <strong>{member.name}</strong>
+            <span className="player-name-row">
+              <strong>{member.name}</strong>
+              {member.isAdmin ? <span className="admin-badge" title="Room admin"><Shield size={11} /></span> : null}
+            </span>
             <span>
               {member.isAdmin ? 'Admin' : 'Player'} {member.isLinked ? ' - linked' : ' - unlinked'}
               {member.favoritePositions?.length ? ` - ${member.favoritePositions.join(', ')}` : ''}
@@ -2810,7 +2813,10 @@ function PlayerRow({
               : initials(player.name)}
           </div>
           <div className="player-main">
-            <strong>{player.name}</strong>
+            <span className="player-name-row">
+              <strong>{player.name}</strong>
+              {player.isAdmin ? <span className="admin-badge" title="Room admin"><Shield size={11} /></span> : null}
+            </span>
             {played > 0 ? (
               <span className="form-bars" aria-hidden="true">
                 {form.map((result, index) => (
