@@ -1004,7 +1004,11 @@ export const handler: Handler = async (event) => {
           "updatedAt" = NOW()
         RETURNING id, "gameweekId", "teamA_score", "teamB_score", "teamA_player_count", "teamB_player_count"
       `
-      await updatePlayerRatings(body.gameweekId, active.roomId)
+      try {
+        await updatePlayerRatings(body.gameweekId, active.roomId)
+      } catch (e) {
+        console.error('[teamix] updatePlayerRatings failed for gameweek', body.gameweekId, e)
+      }
       await awardAchievementsForGameweek(body.gameweekId, active.roomId, body.teamA_score, body.teamB_score)
       return json(result)
     }
@@ -1705,6 +1709,13 @@ async function updatePlayerRatings(gameweekId: number, roomId: number) {
       if (teamBPlayers <= teamAPlayers) points -= result.teamA_score * 0.1
     }
 
+    await db.sql`
+      DELETE FROM public."Ratings"
+      WHERE "playerId" = ${assignment.playerId}
+        AND "roomId" = ${roomId}
+        AND date = ${result.date}::date
+        AND "raterId" IS NULL
+    `
     await db.sql`
       INSERT INTO public."Ratings" ("playerId", date, rating, "raterId", "roomId", "createdAt", "updatedAt")
       VALUES (${assignment.playerId}, ${result.date}, ${Number(points.toFixed(2))}, NULL, ${roomId}, NOW(), NOW())
