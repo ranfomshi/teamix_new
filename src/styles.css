@@ -99,7 +99,7 @@ button {
 .player-main span,
 .fixture-row p,
 .settings-row strong,
-.room-card span,
+.room-card-info span,
 .empty-panel p {
   color: var(--muted);
 }
@@ -120,7 +120,7 @@ button {
 .primary-action,
 .secondary-action,
 .screen-header button,
-.room-card button,
+.switch-btn,
 .logout-button {
   display: inline-flex;
   min-height: 44px;
@@ -1006,35 +1006,57 @@ button {
 }
 
 .room-card {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 8px;
   text-align: left;
 }
 
-.room-card strong,
-.room-card span {
+.room-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.room-card-info strong,
+.room-card-info span {
   display: block;
 }
 
-.room-card button {
+.room-card-info strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.room-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.switch-btn {
   padding: 0 12px;
   background: var(--grass);
   color: #07130f;
 }
 
 .pin-btn {
-  background: none !important;
+  background: none;
   border: none;
   color: var(--muted);
   cursor: pointer;
-  padding: 4px !important;
+  padding: 6px;
   display: flex;
   align-items: center;
-  flex-shrink: 0;
+  min-height: unset;
+  border-radius: 6px;
 }
 .pin-btn.pinned { color: var(--grass); }
-.pin-btn:hover { color: var(--text); }
+.pin-btn:hover { color: var(--text); background: rgb(255 255 255 / 8%); }
 
-.room-card button:disabled,
+.switch-btn:disabled,
 .primary-action:disabled,
 .screen-header button:disabled {
   cursor: not-allowed;

@@ -2298,7 +2298,7 @@ function RoomAccessPanel({
       return next
     })
     try {
-      await apiSend(`/api/rooms/${roomId}/pin`, getAccessTokenSilently, { pinned })
+      await apiRequest(`/api/rooms/${roomId}/pin`, getAccessTokenSilently, { method: 'PUT', body: { pinned } })
     } catch {
       setPinnedIds((prev) => {
         const next = new Set(prev)
@@ -2393,25 +2393,28 @@ function RoomAccessPanel({
         <div className="room-list compact">
           {sortedMemberships.map((membership) => (
             <div className="room-card" key={membership.roomId}>
-              <button
-                type="button"
-                className={`pin-btn${pinnedIds.has(membership.roomId) ? ' pinned' : ''}`}
-                aria-label={pinnedIds.has(membership.roomId) ? 'Unpin' : 'Pin'}
-                onClick={() => togglePin(membership.roomId)}
-              >
-                {pinnedIds.has(membership.roomId) ? <PinOff size={14} /> : <Pin size={14} />}
-              </button>
-              <div>
+              <div className="room-card-info">
                 <strong>{membership.name}</strong>
                 <span>{membership.code}{membership.roomId === room.roomId ? ' · active' : ''}</span>
               </div>
-              <button
-                type="button"
-                disabled={busy || membership.roomId === room.roomId}
-                onClick={() => activateRoom(membership.roomId)}
-              >
-                {membership.roomId === room.roomId ? 'Active' : 'Switch'}
-              </button>
+              <div className="room-card-actions">
+                <button
+                  type="button"
+                  className={`pin-btn${pinnedIds.has(membership.roomId) ? ' pinned' : ''}`}
+                  aria-label={pinnedIds.has(membership.roomId) ? 'Unpin' : 'Pin'}
+                  onClick={() => togglePin(membership.roomId)}
+                >
+                  {pinnedIds.has(membership.roomId) ? <PinOff size={14} /> : <Pin size={14} />}
+                </button>
+                <button
+                  type="button"
+                  className="switch-btn"
+                  disabled={busy || membership.roomId === room.roomId}
+                  onClick={() => activateRoom(membership.roomId)}
+                >
+                  {membership.roomId === room.roomId ? 'Active' : 'Switch'}
+                </button>
+              </div>
             </div>
           ))}
         </div>
