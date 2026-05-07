@@ -34,8 +34,25 @@ const db = getDatabase({
 })
 const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>()
 
+const tablesReady = (async () => {
+  try {
+    await db.sql`
+      CREATE TABLE IF NOT EXISTS public."PinnedRooms" (
+        id SERIAL PRIMARY KEY,
+        "auth0Id" TEXT NOT NULL,
+        "roomId"  INTEGER NOT NULL,
+        "createdAt" TIMESTAMP DEFAULT NOW(),
+        UNIQUE("auth0Id", "roomId")
+      )
+    `
+  } catch (e) {
+    console.error('[teamix] PinnedRooms table init failed:', e)
+  }
+})()
+
 export const handler: Handler = async (event) => {
   try {
+    await tablesReady
     const route = getRoute(event)
     const method = event.httpMethod.toUpperCase()
 
@@ -396,6 +413,25 @@ export const handler: Handler = async (event) => {
         RETURNING "playerId", "roomId", "isAdmin"
       `
       return member ? json({ success: true, member }) : json({ error: 'Member not found' }, 404)
+    }
+
+    const roomPinMatch = route.match(/^\/rooms\/(\d+)\/pin$/)
+    if (roomPinMatch && method === 'PUT') {
+      const roomId = Number(roomPinMatch[1])
+      const { pinned } = parseBody<{ pinned: boolean }>(event)
+      if (pinned) {
+        await db.sql`
+          INSERT INTO public."PinnedRooms" ("auth0Id", "roomId", "createdAt")
+          VALUES (${auth.sub}, ${roomId}, NOW())
+          ON CONFLICT DO NOTHING
+        `
+      } else {
+        await db.sql`
+          DELETE FROM public."PinnedRooms"
+          WHERE "auth0Id" = ${auth.sub} AND "roomId" = ${roomId}
+        `
+      }
+      return json({ ok: true })
     }
 
     if (method === 'GET' && route === '/current-player') {
@@ -1269,13 +1305,16 @@ async function getMemberships(auth0Id: string) {
     SELECT rm."roomId", rm."playerId", rm."isActive", rm."isAdmin", rm."isMember",
            rm."favoritePositions",
            r.id, r.name, r.code, r."teamAColor", r."teamBColor", r."sportId",
-           s.name AS "sportName"
+           s.name AS "sportName",
+           (pr.id IS NOT NULL) AS "isPinned"
     FROM public."RoomMemberships" rm
     JOIN public."Rooms" r ON r.id = rm."roomId"
     LEFT JOIN public."Sports" s ON s.id = r."sportId"
+    LEFT JOIN public."PinnedRooms" pr
+      ON pr."auth0Id" = ${auth0Id} AND pr."roomId" = rm."roomId"
     WHERE rm."auth0Id" = ${auth0Id}
       AND rm."isMember" = true
-    ORDER BY rm."isActive" DESC, r.name ASC
+    ORDER BY (pr.id IS NOT NULL) DESC, rm."isActive" DESC, r.name ASC
   `
 }
 

@@ -11,6 +11,8 @@ import {
   Lock,
   LogOut,
   Pencil,
+  Pin,
+  PinOff,
   Plus,
   Search,
   Settings,
@@ -31,6 +33,7 @@ type Room = {
   playerId: number
   isActive: boolean
   isAdmin: boolean
+  isPinned?: boolean
   name: string
   code: string
   sportId?: number
@@ -2262,6 +2265,9 @@ function RoomAccessPanel({
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [showMemberships, setShowMemberships] = useState(false)
+  const [pinnedIds, setPinnedIds] = useState<Set<number>>(
+    () => new Set(memberships.filter((m) => m.isPinned).map((m) => m.roomId))
+  )
 
   function confirmAndReload(msg: string) {
     setSuccessMsg(msg)
@@ -2271,16 +2277,44 @@ function RoomAccessPanel({
   async function activateRoom(roomId: number) {
     setBusy(true)
     setError(null)
+    setShowMemberships(false)
     try {
       await apiSend('/api/set-active-room', getAccessTokenSilently, { roomId })
       const target = memberships.find((m) => m.roomId === roomId)
       confirmAndReload(`Switched to ${target?.name ?? 'room'} ✓`)
     } catch (caughtError) {
+      setShowMemberships(true)
       setError(caughtError instanceof Error ? caughtError.message : 'Could not switch room')
     } finally {
       setBusy(false)
     }
   }
+
+  async function togglePin(roomId: number) {
+    const pinned = !pinnedIds.has(roomId)
+    setPinnedIds((prev) => {
+      const next = new Set(prev)
+      pinned ? next.add(roomId) : next.delete(roomId)
+      return next
+    })
+    try {
+      await apiSend(`/api/rooms/${roomId}/pin`, getAccessTokenSilently, { pinned })
+    } catch {
+      setPinnedIds((prev) => {
+        const next = new Set(prev)
+        pinned ? next.delete(roomId) : next.add(roomId)
+        return next
+      })
+    }
+  }
+
+  const sortedMemberships = [...memberships].sort((a, b) => {
+    const aPinned = pinnedIds.has(a.roomId) ? 1 : 0
+    const bPinned = pinnedIds.has(b.roomId) ? 1 : 0
+    if (bPinned !== aPinned) return bPinned - aPinned
+    if (b.isActive !== a.isActive) return b.isActive ? 1 : -1
+    return a.name.localeCompare(b.name)
+  })
 
   async function joinRoom() {
     setBusy(true)
@@ -2357,8 +2391,16 @@ function RoomAccessPanel({
 
       {showMemberships && (
         <div className="room-list compact">
-          {memberships.map((membership) => (
+          {sortedMemberships.map((membership) => (
             <div className="room-card" key={membership.roomId}>
+              <button
+                type="button"
+                className={`pin-btn${pinnedIds.has(membership.roomId) ? ' pinned' : ''}`}
+                aria-label={pinnedIds.has(membership.roomId) ? 'Unpin' : 'Pin'}
+                onClick={() => togglePin(membership.roomId)}
+              >
+                {pinnedIds.has(membership.roomId) ? <PinOff size={14} /> : <Pin size={14} />}
+              </button>
               <div>
                 <strong>{membership.name}</strong>
                 <span>{membership.code}{membership.roomId === room.roomId ? ' · active' : ''}</span>

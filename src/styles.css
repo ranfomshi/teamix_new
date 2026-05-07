@@ -1021,6 +1021,19 @@ button {
   color: #07130f;
 }
 
+.pin-btn {
+  background: none !important;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px !important;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.pin-btn.pinned { color: var(--grass); }
+.pin-btn:hover { color: var(--text); }
+
 .room-card button:disabled,
 .primary-action:disabled,
 .screen-header button:disabled {
