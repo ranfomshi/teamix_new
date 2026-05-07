@@ -779,7 +779,7 @@ button {
 .admin-badge {
   display: inline-flex;
   align-items: center;
-  color: var(--gold);
+  color: var(--gold) !important;
   flex-shrink: 0;
 }
 
