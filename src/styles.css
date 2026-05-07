@@ -1331,18 +1331,12 @@ button {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  color: var(--muted);
-  transition: color 0.2s;
 }
 
 .insight-val.right {
   flex-direction: row-reverse;
-}
-
-.insight-val.winner {
-  font-size: 0.88rem;
 }
 
 .insight-label {
@@ -1351,6 +1345,10 @@ button {
   text-align: center;
   white-space: nowrap;
   opacity: 0.7;
+}
+
+.insight-balanced {
+  font-style: italic;
 }
 
 .insight-winner-dot {

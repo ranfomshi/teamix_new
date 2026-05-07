@@ -1805,25 +1805,19 @@ function TeamInsights({
   return (
     <div className="team-insights">
       <InsightRow
-        labelA={Math.round(avgA).toString()}
-        labelB={Math.round(avgB).toString()}
-        label="Avg rating"
+        label="Favourite"
         aWins={avgA > avgB}
         bWins={avgB > avgA}
         colorA={teamAColor}
         colorB={teamBColor}
-        winnerLabel="Favourite"
       />
       {hasChemistry ? (
         <InsightRow
-          labelA={chemA !== null ? `${Math.round(chemA * 100)}%` : '—'}
-          labelB={chemB !== null ? `${Math.round(chemB * 100)}%` : '—'}
           label="Chemistry"
           aWins={(chemA ?? -1) > (chemB ?? -1)}
           bWins={(chemB ?? -1) > (chemA ?? -1)}
           colorA={teamAColor}
           colorB={teamBColor}
-          winnerLabel="Better"
         />
       ) : null}
     </div>
@@ -1831,34 +1825,30 @@ function TeamInsights({
 }
 
 function InsightRow({
-  labelA,
-  labelB,
   label,
   aWins,
   bWins,
   colorA,
   colorB,
-  winnerLabel,
 }: {
-  labelA: string
-  labelB: string
   label: string
   aWins: boolean
   bWins: boolean
   colorA: string
   colorB: string
-  winnerLabel: string
 }) {
+  const tied = !aWins && !bWins
   return (
     <>
-      <div className={`insight-val${aWins ? ' winner' : ''}`} style={aWins ? { color: colorA } : undefined}>
-        {labelA}
-        {aWins ? <span className="insight-winner-dot" style={{ background: colorA }} title={winnerLabel} /> : null}
+      <div className="insight-val" style={aWins ? { color: colorA } : undefined}>
+        {aWins ? <><span className="insight-winner-dot" style={{ background: colorA }} />{label}</> : null}
       </div>
-      <div className="insight-label">{label}</div>
-      <div className={`insight-val right${bWins ? ' winner' : ''}`} style={bWins ? { color: colorB } : undefined}>
-        {bWins ? <span className="insight-winner-dot" style={{ background: colorB }} title={winnerLabel} /> : null}
-        {labelB}
+      <div className="insight-label">
+        {label === 'Favourite' ? 'Avg rating' : label}
+        {tied ? <span className="insight-balanced"> · Balanced</span> : null}
+      </div>
+      <div className="insight-val right" style={bWins ? { color: colorB } : undefined}>
+        {bWins ? <>{label}<span className="insight-winner-dot" style={{ background: colorB }} /></> : null}
       </div>
     </>
   )
