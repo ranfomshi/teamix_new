@@ -783,12 +783,16 @@ button {
   flex-shrink: 0;
 }
 
+.linked-badge,
 .unlinked-badge {
   display: inline-flex;
   align-items: center;
-  color: var(--muted) !important;
+  color: #fff !important;
   flex-shrink: 0;
-  opacity: 0.6;
+}
+
+.unlinked-badge {
+  opacity: 0.35;
 }
 
 .player-main strong,
