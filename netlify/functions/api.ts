@@ -1094,6 +1094,7 @@ export const handler: Handler = async (event) => {
     }
 
     if (method === 'POST' && route === '/recalculate-achievements') {
+      await db.sql`DELETE FROM public."PlayerAchievements" WHERE "roomId" = ${active.roomId}`
       const allResults = await db.sql<{ gameweekId: number; teamA_score: number; teamB_score: number }>`
         SELECT gr."gameweekId", gr."teamA_score", gr."teamB_score"
         FROM public."GameResults" gr
@@ -1844,6 +1845,7 @@ async function awardAchievementsForGameweek(gameweekId: number, roomId: number, 
       playerId: assignment.playerId,
       roomId,
       gameweekId,
+      gameweekDate: earnedAt,
       team: assignment.team,
       teamA_score,
       teamB_score,
@@ -1865,6 +1867,7 @@ async function getEligibleAchievementIds({
   playerId,
   roomId,
   gameweekId,
+  gameweekDate,
   team,
   teamA_score,
   teamB_score,
@@ -1872,11 +1875,12 @@ async function getEligibleAchievementIds({
   playerId: number
   roomId: number
   gameweekId: number
+  gameweekDate: string
   team: string
   teamA_score: number
   teamB_score: number
 }) {
-  const recent = await getPlayerResultHistory(playerId, roomId, 100, gameweekId)
+  const recent = await getPlayerResultHistory(playerId, roomId, 100, gameweekId, gameweekDate)
   const currentWin = didTeamWin(team, teamA_score, teamB_score)
   const currentLoss = didTeamLose(team, teamA_score, teamB_score)
   const teamGoals = team === 'A' ? teamA_score : teamB_score
@@ -1902,8 +1906,9 @@ async function getEligibleAchievementIds({
   return ids
 }
 
-async function getPlayerResultHistory(playerId: number, roomId: number, limit: number, maxGameweekId?: number) {
-  const ceiling = maxGameweekId ?? 2147483647
+async function getPlayerResultHistory(playerId: number, roomId: number, limit: number, maxGameweekId?: number, maxGameweekDate?: string) {
+  const ceilingId = maxGameweekId ?? 2147483647
+  const ceilingDate = maxGameweekDate ?? '9999-12-31'
   return db.sql<{ gameweekId: number; team: string; outcome: 'W' | 'D' | 'L' }>`
     SELECT gw.id AS "gameweekId", ta.team,
            CASE
@@ -1920,7 +1925,7 @@ async function getPlayerResultHistory(playerId: number, roomId: number, limit: n
     WHERE ta."roomId" = ${roomId}
       AND ta."playerId" = ${playerId}
       AND ta.team IN ('A', 'B')
-      AND gw.id <= ${ceiling}
+      AND (gw.date < ${ceilingDate} OR (gw.date = ${ceilingDate} AND gw.id <= ${ceilingId}))
     ORDER BY gw.date DESC, gw.id DESC
     LIMIT ${limit}
   `
