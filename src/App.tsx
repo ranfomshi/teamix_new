@@ -1631,7 +1631,7 @@ function FixtureCard({
             </span>
           ) : null}
         </div>
-        <ResultBadge fixture={{ ...fixture, gameResult }} />
+        <ResultBadge fixture={{ ...fixture, gameResult }} isPast={isPast} />
         <ChevronDown className="expand-icon" size={18} />
       </button>
 
@@ -3081,9 +3081,9 @@ function ComboRow({ entry, variant }: { entry: ComboEntry; variant: 'ally' | 'ne
 }
 
 
-function ResultBadge({ fixture }: { fixture: Gameweek }) {
+function ResultBadge({ fixture, isPast }: { fixture: Gameweek; isPast?: boolean }) {
   if (!fixture.gameResult) {
-    return <span className="pending-badge">Open</span>
+    return isPast ? null : <span className="pending-badge">Open</span>
   }
 
   return (
