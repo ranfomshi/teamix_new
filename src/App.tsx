@@ -14,6 +14,7 @@ import {
   Pin,
   PinOff,
   Plus,
+  RotateCcw,
   Search,
   Settings,
   Share2,
@@ -64,6 +65,7 @@ type Gameweek = {
   location?: string | null
   startTime?: string | null
   maxPlayers?: number | null
+  availableCount?: number | null
   gameResult?: {
     teamA_score: number
     teamB_score: number
@@ -1220,6 +1222,7 @@ function FixturesView({ room, externalRefreshKey = 0, onResultRecorded }: { room
   const [refreshKey, setRefreshKey] = useState(0)
   const { data: fixtures, error } = useApi<Gameweek[]>(`/api/gameweeks?refresh=${refreshKey}&ext=${externalRefreshKey}`, getAccessTokenSilently)
   const [showNewFixture, setShowNewFixture] = useState(false)
+  const [repeatFrom, setRepeatFrom] = useState<Pick<Gameweek, 'location' | 'startTime' | 'maxPlayers'> | null>(null)
   const nextFixture = (fixtures ?? [])
     .filter((fixture) => new Date(fixture.date).getTime() >= Date.now())
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
@@ -1231,16 +1234,19 @@ function FixturesView({ room, externalRefreshKey = 0, onResultRecorded }: { room
         title="Match centre"
         actionLabel="New"
         icon={<Plus size={17} />}
-        onAction={() => setShowNewFixture((shown) => !shown)}
+        onAction={() => { setShowNewFixture((shown) => !shown); setRepeatFrom(null) }}
       />
 
       {showNewFixture ? (
         <NewFixtureForm
+          key={repeatFrom ? `repeat-${repeatFrom.location}-${repeatFrom.startTime}-${repeatFrom.maxPlayers}` : 'new'}
+          initialValues={repeatFrom ?? undefined}
           pastLocations={[...new Set(
             (fixtures ?? []).map((f) => f.location).filter((l): l is string => Boolean(l))
           )]}
           onCreated={() => {
             setShowNewFixture(false)
+            setRepeatFrom(null)
             setRefreshKey((key) => key + 1)
           }}
         />
@@ -1276,6 +1282,7 @@ function FixturesView({ room, externalRefreshKey = 0, onResultRecorded }: { room
             room={room}
             onDeleted={() => setRefreshKey((key) => key + 1)}
             onResultRecorded={onResultRecorded}
+            onRepeat={room.isAdmin ? (f) => { setRepeatFrom(f); setShowNewFixture(true); window.scrollTo({ top: 0, behavior: 'smooth' }) } : undefined}
           />
         ))}
       </div>
@@ -1283,12 +1290,12 @@ function FixturesView({ room, externalRefreshKey = 0, onResultRecorded }: { room
   )
 }
 
-function NewFixtureForm({ onCreated, pastLocations }: { onCreated: () => void; pastLocations: string[] }) {
+function NewFixtureForm({ onCreated, pastLocations, initialValues }: { onCreated: () => void; pastLocations: string[]; initialValues?: Pick<Gameweek, 'location' | 'startTime' | 'maxPlayers'> }) {
   const { getAccessTokenSilently } = useAuth0()
   const [date, setDate] = useState('')
-  const [startTime, setStartTime] = useState('')
-  const [location, setLocation] = useState('')
-  const [maxPlayers, setMaxPlayers] = useState('')
+  const [startTime, setStartTime] = useState(initialValues?.startTime ?? '')
+  const [location, setLocation] = useState(initialValues?.location ?? '')
+  const [maxPlayers, setMaxPlayers] = useState(initialValues?.maxPlayers?.toString() ?? '')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -1426,11 +1433,13 @@ function FixtureCard({
   room,
   onDeleted,
   onResultRecorded,
+  onRepeat,
 }: {
   fixture: Gameweek
   room: Room
   onDeleted: () => void
   onResultRecorded?: () => void
+  onRepeat?: (fixture: Gameweek) => void
 }) {
   const { getAccessTokenSilently } = useAuth0()
   const [expanded, setExpanded] = useState(false)
@@ -1442,6 +1451,7 @@ function FixtureCard({
   const [localLocation, setLocalLocation] = useState(fixture.location ?? null)
   const [localStartTime, setLocalStartTime] = useState(fixture.startTime ?? null)
   const [localMaxPlayers, setLocalMaxPlayers] = useState(fixture.maxPlayers ?? null)
+  const [localAvailableCount, setLocalAvailableCount] = useState<number | null>(fixture.availableCount ?? null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [adminAction, setAdminAction] = useState<AdminAction>(null)
@@ -1479,6 +1489,12 @@ function FixtureCard({
   }, [detailKey, expanded, fixture.id, getAccessTokenSilently])
 
   useEffect(() => { setChemistry(null) }, [detailKey])
+
+  useEffect(() => {
+    if (detail.availability) {
+      setLocalAvailableCount(detail.availability.filter((r) => r.status === true).length)
+    }
+  }, [detail.availability])
 
   useEffect(() => {
     if (!detail.assignments || chemistry !== null) return
@@ -1597,7 +1613,15 @@ function FixtureCard({
         </div>
         <div>
           <h3>{localLocation ?? 'Fixture'}</h3>
-          <p>{localStartTime ?? 'Time TBC'} · max {localMaxPlayers ?? 'open'}</p>
+          <p>{localStartTime ?? 'Time TBC'} · {
+            localAvailableCount !== null && localMaxPlayers
+              ? `${localAvailableCount}/${localMaxPlayers}`
+              : localAvailableCount !== null
+                ? `${localAvailableCount} in`
+                : localMaxPlayers
+                  ? `max ${localMaxPlayers}`
+                  : 'open'
+          }</p>
           {localPoM.length > 0 && gameResult ? (
             <span className="fixture-pom-line">
               <Trophy size={10} />
@@ -1706,6 +1730,15 @@ function FixtureCard({
                 >
                   <CalendarDays size={14} /> Edit fixture
                 </button>
+                {onRepeat ? (
+                  <button
+                    type="button"
+                    className="admin-action-btn"
+                    onClick={() => { onRepeat(fixture); setExpanded(false) }}
+                  >
+                    <RotateCcw size={14} /> Repeat
+                  </button>
+                ) : null}
                 {isPast ? (
                   <button
                     type="button"

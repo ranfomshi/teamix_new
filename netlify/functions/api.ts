@@ -798,7 +798,9 @@ export const handler: Handler = async (event) => {
       const gameweeks = await db.sql`
         SELECT gw.id, gw.date, gw.location, gw."startTime", gw."maxPlayers",
                gr."teamA_score", gr."teamB_score", gr."createdAt" AS "resultCreatedAt",
-               COALESCE(potm."playerOfTheMatch", '[]'::json) AS "playerOfTheMatch"
+               COALESCE(potm."playerOfTheMatch", '[]'::json) AS "playerOfTheMatch",
+               (SELECT COUNT(*)::int FROM public."Availabilities" a
+                WHERE a."gameweekId" = gw.id AND a."roomId" = gw."roomId" AND a.status = true) AS "availableCount"
         FROM public."Gameweeks" gw
         LEFT JOIN public."GameResults" gr
           ON gr."gameweekId" = gw.id AND gr."roomId" = gw."roomId"
@@ -1989,6 +1991,7 @@ function formatGameweek(gameweek: Record<string, unknown>) {
     location: gameweek.location,
     startTime: gameweek.startTime,
     maxPlayers: gameweek.maxPlayers,
+    availableCount: gameweek.availableCount ?? null,
     gameResult:
       teamAScore === null || teamAScore === undefined
         ? null
