@@ -1333,6 +1333,11 @@ button {
   gap: 5px;
   font-size: 0.8rem;
   font-weight: 700;
+  color: var(--muted);
+}
+
+.insight-val--winner {
+  color: var(--text);
 }
 
 .insight-val.right {

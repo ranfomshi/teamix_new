@@ -562,6 +562,7 @@ export const handler: Handler = async (event) => {
 
       async function calcChemistry(playerIds: number[]): Promise<number | null> {
         if (playerIds.length < 2) return null
+        const idList = playerIds.join(',')
         const [row] = await db.sql<{ chemistry: number | null }>`
           SELECT AVG(wins::float / NULLIF(games, 0)) AS chemistry
           FROM (
@@ -580,11 +581,11 @@ export const handler: Handler = async (event) => {
             JOIN public."GameResults" gr
               ON gr."gameweekId" = ta1."gameweekId"
              AND gr."roomId" = ta1."roomId"
-            WHERE ta1."playerId" = ANY(${playerIds})
-              AND ta2."playerId" = ANY(${playerIds})
+            WHERE ta1."playerId" = ANY(string_to_array(${idList}, ',')::integer[])
+              AND ta2."playerId" = ANY(string_to_array(${idList}, ',')::integer[])
               AND ta1."roomId" = ${active.roomId}
             GROUP BY ta1."playerId", ta2."playerId"
-            HAVING COUNT(*) >= 2
+            HAVING COUNT(*) >= 1
           ) pairs
         `
         return row?.chemistry ?? null

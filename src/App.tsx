@@ -1485,8 +1485,8 @@ function FixtureCard({
     const teamBIds = detail.assignments.filter((a) => a.team === 'B').map((a) => a.Player.id)
     if (teamAIds.length < 2 && teamBIds.length < 2) return
     apiSend<TeamChemistry>('/api/team-chemistry', getAccessTokenSilently, { teamAIds, teamBIds })
-      .then((data) => { if (data) setChemistry(data) })
-      .catch(() => {})
+      .then((data) => setChemistry(data ?? { teamA: null, teamB: null }))
+      .catch((err) => { console.error('[chemistry]', err); setChemistry({ teamA: null, teamB: null }) })
   }, [detail.assignments, chemistry, getAccessTokenSilently])
 
   async function assignPlayer(playerId: number, team: 'A' | 'B' | 'bench') {
@@ -1798,7 +1798,7 @@ function TeamInsights({
 
   const chemA = chemistry?.teamA ?? null
   const chemB = chemistry?.teamB ?? null
-  const hasChemistry = chemA !== null || chemB !== null
+  const chemFetched = chemistry !== null
 
   if (avgA === 0 && avgB === 0) return null
 
@@ -1811,7 +1811,7 @@ function TeamInsights({
         colorA={teamAColor}
         colorB={teamBColor}
       />
-      {hasChemistry ? (
+      {chemFetched ? (
         <InsightRow
           label="Chemistry"
           aWins={(chemA ?? -1) > (chemB ?? -1)}
@@ -1847,7 +1847,7 @@ function InsightRow({
   const centerLabel = label === 'Favourite' ? 'AI prediction' : label
   return (
     <>
-      <div className="insight-val" style={aWins ? { color: colorA } : undefined}>
+      <div className={`insight-val${aWins ? ' insight-val--winner' : ''}`}>
         {valueA
           ? <><span className="insight-winner-dot" style={aWins ? { background: colorA } : { opacity: 0 }} />{valueA}</>
           : aWins ? <><span className="insight-winner-dot" style={{ background: colorA }} />{label}</> : null}
@@ -1856,7 +1856,7 @@ function InsightRow({
         {centerLabel}
         {tied && !valueA ? <span className="insight-balanced"> · Balanced</span> : null}
       </div>
-      <div className="insight-val right" style={bWins ? { color: colorB } : undefined}>
+      <div className={`insight-val right${bWins ? ' insight-val--winner' : ''}`}>
         {valueB
           ? <>{valueB}<span className="insight-winner-dot" style={bWins ? { background: colorB } : { opacity: 0 }} /></>
           : bWins ? <>{label}<span className="insight-winner-dot" style={{ background: colorB }} /></> : null}
