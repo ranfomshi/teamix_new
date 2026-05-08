@@ -1410,22 +1410,13 @@ button {
   height: 100%;
   border-radius: 6px;
   transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
-  opacity: 0.9;
+  background: linear-gradient(to right, #4ade80, #facc15, #ef4444);
 }
 
 .chem-bar-fill--right {
   left: auto;
   right: 0;
-}
-
-.chem-pct {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.chem-pct--winner {
-  color: var(--text);
+  background: linear-gradient(to left, #4ade80, #facc15, #ef4444);
 }
 
 .team-list {

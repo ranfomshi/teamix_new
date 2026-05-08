@@ -1814,7 +1814,7 @@ function TeamInsights({
         />
       </div>
       {chemFetched ? (
-        <ChemistryRow chemA={chemA} chemB={chemB} colorA={teamAColor} colorB={teamBColor} />
+        <ChemistryRow chemA={chemA} chemB={chemB} />
       ) : null}
     </>
   )
@@ -1850,21 +1850,9 @@ function InsightRow({
   )
 }
 
-function ChemistryRow({
-  chemA,
-  chemB,
-  colorA,
-  colorB,
-}: {
-  chemA: number | null
-  chemB: number | null
-  colorA: string
-  colorB: string
-}) {
+function ChemistryRow({ chemA, chemB }: { chemA: number | null; chemB: number | null }) {
   const pctA = chemA !== null ? Math.round(chemA * 100) : null
   const pctB = chemB !== null ? Math.round(chemB * 100) : null
-  const aWins = (chemA ?? -1) > (chemB ?? -1)
-  const bWins = (chemB ?? -1) > (chemA ?? -1)
 
   return (
     <div className="chemistry-section">
@@ -1872,19 +1860,13 @@ function ChemistryRow({
       <div className="chemistry-bars">
         <div className="chem-team">
           <div className="chem-bar">
-            <div className="chem-bar-fill" style={{ width: `${pctA ?? 0}%`, background: colorA }} />
+            <div className="chem-bar-fill" style={{ width: `${pctA ?? 0}%` }} />
           </div>
-          <span className={`chem-pct${aWins ? ' chem-pct--winner' : ''}`}>
-            {pctA !== null ? `${pctA}%` : 'No data'}
-          </span>
         </div>
         <div className="chem-team chem-team--right">
           <div className="chem-bar">
-            <div className="chem-bar-fill chem-bar-fill--right" style={{ width: `${pctB ?? 0}%`, background: colorB }} />
+            <div className="chem-bar-fill chem-bar-fill--right" style={{ width: `${pctB ?? 0}%` }} />
           </div>
-          <span className={`chem-pct${bWins ? ' chem-pct--winner' : ''}`}>
-            {pctB !== null ? `${pctB}%` : 'No data'}
-          </span>
         </div>
       </div>
     </div>
