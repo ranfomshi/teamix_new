@@ -2015,7 +2015,7 @@ function AdminAvailabilityPanel({
               type="button"
               className={row.status === true ? 'active available' : ''}
               disabled={saving}
-              onClick={() => onSet(true, row.playerId)}
+              onClick={() => { onSet(true, row.playerId); setSearch('') }}
             >
               In
             </button>
@@ -2023,7 +2023,7 @@ function AdminAvailabilityPanel({
               type="button"
               className={row.status === false ? 'active unavailable' : ''}
               disabled={saving}
-              onClick={() => onSet(false, row.playerId)}
+              onClick={() => { onSet(false, row.playerId); setSearch('') }}
             >
               Out
             </button>
