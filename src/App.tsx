@@ -1232,7 +1232,7 @@ function FixturesView({ room, externalRefreshKey = 0, onResultRecorded }: { room
       <ScreenHeader
         eyebrow="Fixtures"
         title="Match centre"
-        actionLabel="New"
+        actionLabel={showNewFixture ? 'Cancel' : 'New'}
         icon={<Plus size={17} />}
         onAction={() => { setShowNewFixture((shown) => !shown); setRepeatFrom(null) }}
       />
