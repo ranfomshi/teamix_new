@@ -557,7 +557,7 @@ export const handler: Handler = async (event) => {
       return json(player, 201)
     }
 
-    if (route === '/api/team-chemistry' && method === 'POST') {
+    if (route === '/team-chemistry' && method === 'POST') {
       const { teamAIds, teamBIds } = parseBody<{ teamAIds: number[]; teamBIds: number[] }>(event)
 
       async function calcChemistry(playerIds: number[]): Promise<number | null> {
