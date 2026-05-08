@@ -520,6 +520,7 @@ button {
   min-width: 0;
   align-items: center;
   gap: 11px;
+  text-decoration: none;
 }
 
 .room-mark img {

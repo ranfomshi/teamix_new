@@ -700,13 +700,13 @@ function TopBar({
 
   return (
     <header className="top-bar">
-      <div className="room-mark">
+      <Link to="/players" className="room-mark">
         <img src="/fp_logo.png" alt="" />
         <div>
           <strong>{room.name}</strong>
           <span>{room.sportName ?? 'Team sport'} · {userName}</span>
         </div>
-      </div>
+      </Link>
       <div className="top-bar-actions">
         <NotificationBell getAccessTokenSilently={getAccessTokenSilently} playerId={room.playerId} initialNotifications={initialNotifications} onAvailabilityChanged={onAvailabilityChanged} refreshKey={notifRefreshKey} />
         <button type="button" className="room-code" onClick={shareRoom}>
