@@ -1250,9 +1250,13 @@ export const handler: Handler = async (event) => {
           ON a."gameweekId" = gw.id
          AND a."roomId" = gw."roomId"
          AND a."playerId" = ${active.playerId}
+        LEFT JOIN public."GameResults" gr
+          ON gr."gameweekId" = gw.id
+         AND gr."roomId" = gw."roomId"
         WHERE gw."roomId" = ${active.roomId}
           AND gw.date >= CURRENT_DATE
           AND a."playerId" IS NULL
+          AND gr."gameweekId" IS NULL
         ORDER BY gw.date ASC
       `
 

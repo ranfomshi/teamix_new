@@ -1706,13 +1706,15 @@ function FixtureCard({
                 >
                   <CalendarDays size={14} /> Edit fixture
                 </button>
-                <button
-                  type="button"
-                  className={`admin-action-btn${adminAction === 'result' ? ' active' : ''}`}
-                  onClick={() => toggleAdmin('result')}
-                >
-                  <Pencil size={14} /> {gameResult ? 'Edit result' : 'Record result'}
-                </button>
+                {isPast ? (
+                  <button
+                    type="button"
+                    className={`admin-action-btn${adminAction === 'result' ? ' active' : ''}`}
+                    onClick={() => toggleAdmin('result')}
+                  >
+                    <Pencil size={14} /> {gameResult ? 'Edit result' : 'Record result'}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="admin-action-btn danger"
