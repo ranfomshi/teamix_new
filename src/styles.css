@@ -783,6 +783,14 @@ button {
   flex-shrink: 0;
 }
 
+.unlinked-badge {
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted) !important;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
 .player-main strong,
 .player-main span {
   display: block;

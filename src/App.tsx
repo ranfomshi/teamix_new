@@ -48,6 +48,7 @@ type Player = {
   rating: string
   profilePicture?: string | null
   isAdmin?: boolean
+  isLinked?: boolean
   favoritePositions?: string[]
   wins?: number
   draws?: number
@@ -2345,6 +2346,7 @@ function RoomMembersPanel({ room, onRoomChanged }: { room: Room; onRoomChanged: 
             <span className="player-name-row">
               <strong>{member.name}</strong>
               {member.isAdmin ? <span className="admin-badge" title="Room admin"><Shield size={11} fill="currentColor" /></span> : null}
+              {!member.isLinked ? <span className="unlinked-badge" title="No login linked"><CircleUserRound size={11} /></span> : null}
             </span>
             <span>
               {member.isAdmin ? 'Admin' : 'Player'} {member.isLinked ? ' - linked' : ' - unlinked'}
@@ -2935,6 +2937,7 @@ function PlayerRow({
             <span className="player-name-row">
               <strong>{player.name}</strong>
               {player.isAdmin ? <span className="admin-badge" title="Room admin"><Shield size={11} fill="currentColor" /></span> : null}
+              {player.isLinked === false ? <span className="unlinked-badge" title="No login linked"><CircleUserRound size={11} /></span> : null}
             </span>
             {played > 0 ? (
               <span className="form-bars" aria-hidden="true">

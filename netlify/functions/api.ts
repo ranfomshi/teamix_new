@@ -467,6 +467,7 @@ export const handler: Handler = async (event) => {
       const players = await db.sql`
         SELECT
           p.id, p.name, p.rating, p."profilePicture", rm."isAdmin",
+          (rm."auth0Id" IS NOT NULL) AS "isLinked",
           COALESCE(s.wins, 0)::int   AS wins,
           COALESCE(s.draws, 0)::int  AS draws,
           COALESCE(s.losses, 0)::int AS losses,
