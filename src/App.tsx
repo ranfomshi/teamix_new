@@ -1803,18 +1803,20 @@ function TeamInsights({
   if (avgA === 0 && avgB === 0) return null
 
   return (
-    <div className="team-insights">
-      <InsightRow
-        label="Favourite"
-        aWins={avgA > avgB}
-        bWins={avgB > avgA}
-        colorA={teamAColor}
-        colorB={teamBColor}
-      />
+    <>
+      <div className="team-insights">
+        <InsightRow
+          label="Favourite"
+          aWins={avgA > avgB}
+          bWins={avgB > avgA}
+          colorA={teamAColor}
+          colorB={teamBColor}
+        />
+      </div>
       {chemFetched ? (
         <ChemistryRow chemA={chemA} chemB={chemB} colorA={teamAColor} colorB={teamBColor} />
       ) : null}
-    </div>
+    </>
   )
 }
 
@@ -1865,25 +1867,27 @@ function ChemistryRow({
   const bWins = (chemB ?? -1) > (chemA ?? -1)
 
   return (
-    <>
-      <div className="chem-bar-cell">
-        <div className="chem-bar">
-          <div className="chem-bar-fill" style={{ width: `${pctA ?? 0}%`, background: colorA }} />
+    <div className="chemistry-section">
+      <p className="chemistry-label">Chemistry</p>
+      <div className="chemistry-bars">
+        <div className="chem-team">
+          <div className="chem-bar">
+            <div className="chem-bar-fill" style={{ width: `${pctA ?? 0}%`, background: colorA }} />
+          </div>
+          <span className={`chem-pct${aWins ? ' chem-pct--winner' : ''}`}>
+            {pctA !== null ? `${pctA}%` : 'No data'}
+          </span>
         </div>
-        <span className={`chem-pct${aWins ? ' chem-pct--winner' : ''}`}>
-          {pctA !== null ? `${pctA}%` : '—'}
-        </span>
-      </div>
-      <div className="insight-label">Chemistry</div>
-      <div className="chem-bar-cell chem-bar-cell--right">
-        <div className="chem-bar">
-          <div className="chem-bar-fill chem-bar-fill--right" style={{ width: `${pctB ?? 0}%`, background: colorB }} />
+        <div className="chem-team chem-team--right">
+          <div className="chem-bar">
+            <div className="chem-bar-fill chem-bar-fill--right" style={{ width: `${pctB ?? 0}%`, background: colorB }} />
+          </div>
+          <span className={`chem-pct${bWins ? ' chem-pct--winner' : ''}`}>
+            {pctB !== null ? `${pctB}%` : 'No data'}
+          </span>
         </div>
-        <span className={`chem-pct${bWins ? ' chem-pct--winner' : ''}`}>
-          {pctB !== null ? `${pctB}%` : '—'}
-        </span>
       </div>
-    </>
+    </div>
   )
 }
 
