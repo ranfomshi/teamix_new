@@ -2355,7 +2355,7 @@ function RoomMembersPanel({ room, onRoomChanged }: { room: Room; onRoomChanged: 
               {member.favoritePositions?.length ? ` - ${member.favoritePositions.join(', ')}` : ''}
             </span>
           </div>
-          {!member.isAdmin ? (
+          {!member.isAdmin && member.isLinked ? (
             <button type="button" onClick={() => promote(member.playerId)} disabled={busyPlayerId === member.playerId}>
               Make admin
             </button>
