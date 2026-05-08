@@ -1614,13 +1614,15 @@ function FixtureCard({
         <div>
           <h3>{localLocation ?? 'Fixture'}</h3>
           <p>{localStartTime ?? 'Time TBC'} · {
-            localAvailableCount !== null && localMaxPlayers
-              ? `${localAvailableCount}/${localMaxPlayers}`
-              : localAvailableCount !== null
-                ? `${localAvailableCount} in`
-                : localMaxPlayers
-                  ? `max ${localMaxPlayers}`
-                  : 'open'
+            isPast && !gameResult
+              ? 'Record result'
+              : localAvailableCount !== null && localMaxPlayers
+                ? `${localAvailableCount}/${localMaxPlayers}`
+                : localAvailableCount !== null
+                  ? `${localAvailableCount} in`
+                  : localMaxPlayers
+                    ? `max ${localMaxPlayers}`
+                    : 'open'
           }</p>
           {localPoM.length > 0 && gameResult ? (
             <span className="fixture-pom-line">
