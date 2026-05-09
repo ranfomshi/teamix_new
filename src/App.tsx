@@ -550,19 +550,21 @@ function Welcome({ onLogin }: { onLogin: () => void }) {
           A mobile-first team hub for fixtures, availability, player ratings, and
           post-match momentum.
         </p>
-        <button className="primary-action" type="button" onClick={onLogin}>
-          Get started
-          <ChevronRight size={18} />
-        </button>
-        <div className="welcome-nav-links">
-          <Link to="/features" className="welcome-nav-link">
-            <span>Features</span>
-            <small>What Teamix does</small>
-          </Link>
-          <Link to="/how-it-works" className="welcome-nav-link">
-            <span>How it works</span>
-            <small>Step-by-step guide</small>
-          </Link>
+        <div className="welcome-cta-group">
+          <button className="primary-action" type="button" onClick={onLogin}>
+            Get started
+            <ChevronRight size={18} />
+          </button>
+          <div className="welcome-nav-links">
+            <Link to="/features" className="welcome-nav-link">
+              <span>Features</span>
+              <small>What Teamix does</small>
+            </Link>
+            <Link to="/how-it-works" className="welcome-nav-link">
+              <span>How it works</span>
+              <small>Step-by-step guide</small>
+            </Link>
+          </div>
         </div>
       </section>
       <footer className="welcome-footer">
