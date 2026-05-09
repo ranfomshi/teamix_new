@@ -400,6 +400,11 @@ button {
   outline-offset: 1px;
 }
 
+.season-select option {
+  background: #0d1f18;
+  color: #f7fff9;
+}
+
 .notif-bell {
   position: relative;
   display: grid;
