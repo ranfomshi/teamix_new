@@ -1,4 +1,6 @@
 import { Auth0Provider, useAuth0 } from '@auth0/auth0-react'
+import FeaturesPage from './pages/FeaturesPage'
+import HowItWorksPage from './pages/HowItWorksPage'
 import {
   // Activity,
   ArrowDownUp,
@@ -169,6 +171,14 @@ function App() {
 function AppFrame() {
   const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0()
   const location = useLocation()
+
+  if (location.pathname === '/features') {
+    return <FeaturesPage onLogin={() => loginWithRedirect()} />
+  }
+
+  if (location.pathname === '/how-it-works') {
+    return <HowItWorksPage onLogin={() => loginWithRedirect()} />
+  }
 
   if (isLoading) {
     return <Splash label="Lacing up Teamix..." />
@@ -465,6 +475,8 @@ function Welcome({ onLogin }: { onLogin: () => void }) {
           Get started
           <ChevronRight size={18} />
         </button>
+        <Link to="/features" className="welcome-secondary-link">See all features →</Link>
+        <Link to="/how-it-works" className="welcome-secondary-link">How it works →</Link>
       </section>
 
     </main>
