@@ -2587,7 +2587,7 @@ function SeasonManagementPanel() {
               <Plus size={15} /> New season
             </button>
           ) : (
-            <div className="season-form">
+            <div className="form-panel embedded">
               <label>
                 Season name
                 <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Summer 2025" autoFocus />

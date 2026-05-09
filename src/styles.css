@@ -2507,10 +2507,6 @@ button {
   font-size: 0.85rem;
 }
 
-.season-form {
-  display: grid;
-  gap: 10px;
-}
 
 .danger-confirm {
   display: grid;
