@@ -364,6 +364,26 @@ button {
   flex-shrink: 0;
 }
 
+.season-select {
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 8%);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  max-width: 120px;
+  text-overflow: ellipsis;
+}
+
+.season-select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .notif-bell {
   position: relative;
   display: grid;
@@ -2413,6 +2433,77 @@ button {
 
 .advanced-toggle .open {
   transform: rotate(180deg);
+}
+
+.season-panel {
+  display: grid;
+  gap: 10px;
+  padding: 4px 10px 12px;
+}
+
+.season-active-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgb(28 179 107 / 8%);
+}
+
+.season-active-card div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.season-active-card strong {
+  font-size: 0.95rem;
+}
+
+.season-active-card span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.season-end-btn {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1px solid rgb(255 111 97 / 40%);
+  border-radius: 7px;
+  background: transparent;
+  color: rgb(255 111 97);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.season-end-btn:disabled {
+  opacity: 0.5;
+}
+
+.season-past-list {
+  display: grid;
+  gap: 4px;
+}
+
+.season-past-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 4%);
+  font-size: 0.85rem;
+}
+
+.season-form {
+  display: grid;
+  gap: 10px;
 }
 
 .danger-confirm {

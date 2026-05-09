@@ -48,6 +48,20 @@ const tablesReady = (async () => {
   } catch (e) {
     console.error('[teamix] PinnedRooms table init failed:', e)
   }
+  try {
+    await db.sql`
+      CREATE TABLE IF NOT EXISTS public."Seasons" (
+        id SERIAL PRIMARY KEY,
+        "roomId" INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        "startDate" DATE NOT NULL,
+        "endDate" DATE,
+        "createdAt" TIMESTAMP DEFAULT NOW()
+      )
+    `
+  } catch (e) {
+    console.error('[teamix] Seasons table init failed:', e)
+  }
 })()
 
 export const handler: Handler = async (event) => {
@@ -463,7 +477,56 @@ export const handler: Handler = async (event) => {
       return membership ? json({ favoritePositions: membership.favoritePositions }) : json({ error: 'Membership not found' }, 404)
     }
 
+    if (method === 'GET' && route === '/seasons') {
+      const seasons = await db.sql`
+        SELECT id, name, "startDate"::text AS "startDate", "endDate"::text AS "endDate", "createdAt"
+        FROM public."Seasons"
+        WHERE "roomId" = ${active.roomId}
+        ORDER BY "startDate" DESC
+      `
+      return json(seasons)
+    }
+
+    if (method === 'POST' && route === '/seasons') {
+      if (!active.isAdmin) return json({ error: 'Admin only' }, 403)
+      const body = parseBody<{ name?: string; startDate?: string }>(event)
+      if (!body.name?.trim()) return json({ error: 'name is required' }, 400)
+      if (!body.startDate) return json({ error: 'startDate is required' }, 400)
+      const [season] = await db.sql`
+        INSERT INTO public."Seasons" ("roomId", name, "startDate", "createdAt")
+        VALUES (${active.roomId}, ${body.name.trim()}, ${body.startDate}::date, NOW())
+        RETURNING id, name, "startDate"::text AS "startDate", "endDate"::text AS "endDate"
+      `
+      return json(season, 201)
+    }
+
+    const seasonEndMatch = route.match(/^\/seasons\/(\d+)\/end$/)
+    if (method === 'PUT' && seasonEndMatch) {
+      if (!active.isAdmin) return json({ error: 'Admin only' }, 403)
+      const [season] = await db.sql`
+        UPDATE public."Seasons"
+        SET "endDate" = CURRENT_DATE
+        WHERE id = ${Number(seasonEndMatch[1])} AND "roomId" = ${active.roomId} AND "endDate" IS NULL
+        RETURNING id, name, "startDate"::text AS "startDate", "endDate"::text AS "endDate"
+      `
+      return season ? json(season) : json({ error: 'Season not found or already ended' }, 404)
+    }
+
     if (method === 'GET' && route === '/players') {
+      const seasonIdParam = event.queryStringParameters?.seasonId
+      let seasonStart = '1970-01-01'
+      let seasonEnd = '9999-12-31'
+      if (seasonIdParam) {
+        const [season] = await db.sql`
+          SELECT "startDate"::text AS "startDate", "endDate"::text AS "endDate"
+          FROM public."Seasons"
+          WHERE id = ${Number(seasonIdParam)} AND "roomId" = ${active.roomId}
+        `
+        if (season) {
+          seasonStart = season.startDate
+          seasonEnd = season.endDate ?? '9999-12-31'
+        }
+      }
       const players = await db.sql`
         SELECT
           p.id, p.name, p.rating, p."profilePicture", rm."isAdmin",
@@ -497,8 +560,12 @@ export const handler: Handler = async (event) => {
           FROM public."TeamAssignments" ta
           JOIN public."GameResults" gr
             ON gr."gameweekId" = ta."gameweekId" AND gr."roomId" = ta."roomId"
+          JOIN public."Gameweeks" gw
+            ON gw.id = ta."gameweekId" AND gw."roomId" = ta."roomId"
           WHERE ta."roomId" = ${active.roomId}
             AND ta.team IN ('A', 'B')
+            AND gw.date >= ${seasonStart}::date
+            AND gw.date <= ${seasonEnd}::date
           GROUP BY ta."playerId"
         ) s ON s."playerId" = p.id
         LEFT JOIN LATERAL (
@@ -523,6 +590,8 @@ export const handler: Handler = async (event) => {
               WHERE ta."roomId" = ${active.roomId}
                 AND ta."playerId" = p.id
                 AND ta.team IN ('A', 'B')
+                AND gw.date >= ${seasonStart}::date
+                AND gw.date <= ${seasonEnd}::date
               ORDER BY gw.date DESC, gw.id DESC
               LIMIT 5
             ) recent
@@ -795,6 +864,20 @@ export const handler: Handler = async (event) => {
     }
 
     if (method === 'GET' && route === '/gameweeks') {
+      const gwSeasonIdParam = event.queryStringParameters?.seasonId
+      let gwSeasonStart = '1970-01-01'
+      let gwSeasonEnd = '9999-12-31'
+      if (gwSeasonIdParam) {
+        const [gwSeason] = await db.sql`
+          SELECT "startDate"::text AS "startDate", "endDate"::text AS "endDate"
+          FROM public."Seasons"
+          WHERE id = ${Number(gwSeasonIdParam)} AND "roomId" = ${active.roomId}
+        `
+        if (gwSeason) {
+          gwSeasonStart = gwSeason.startDate
+          gwSeasonEnd = gwSeason.endDate ?? '9999-12-31'
+        }
+      }
       const gameweeks = await db.sql`
         SELECT gw.id, gw.date, gw.location, gw."startTime", gw."maxPlayers",
                gr."teamA_score", gr."teamB_score", gr."createdAt" AS "resultCreatedAt",
@@ -818,6 +901,8 @@ export const handler: Handler = async (event) => {
           WHERE ranked.vote_rank = 1
         ) potm ON true
         WHERE gw."roomId" = ${active.roomId}
+          AND gw.date >= ${gwSeasonStart}::date
+          AND gw.date <= ${gwSeasonEnd}::date
         ORDER BY gw.date DESC
       `
       return json(gameweeks.map(formatGameweek))

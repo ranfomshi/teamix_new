@@ -27,7 +27,7 @@ import {
   UsersRound,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { BrowserRouter } from 'react-router-dom'
 import { identify, track, resetIdentity } from './analytics'
@@ -87,6 +87,83 @@ type Sport = {
 type ApiState = {
   activeRoom: Room | null
   memberships: Room[]
+}
+
+type Season = {
+  id: number
+  name: string
+  startDate: string
+  endDate: string | null
+}
+
+type SeasonContextValue = {
+  seasons: Season[]
+  selectedSeasonId: number | null
+  setSelectedSeasonId: (id: number | null) => void
+  refreshSeasons: () => void
+}
+
+const SeasonContext = createContext<SeasonContextValue>({
+  seasons: [],
+  selectedSeasonId: null,
+  setSelectedSeasonId: () => {},
+  refreshSeasons: () => {},
+})
+
+function useSeason() {
+  return useContext(SeasonContext)
+}
+
+function SeasonProvider({
+  room,
+  getAccessTokenSilently,
+  children,
+}: {
+  room: Room
+  getAccessTokenSilently: () => Promise<string>
+  children: React.ReactNode
+}) {
+  const storageKey = `teamix-season-${room.roomId}`
+  const [seasons, setSeasons] = useState<Season[]>([])
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [selectedSeasonId, setSelectedSeasonIdRaw] = useState<number | null>(() => {
+    const stored = localStorage.getItem(storageKey)
+    return stored ? Number(stored) : null
+  })
+  const defaultedRef = useRef(false)
+
+  function setSelectedSeasonId(id: number | null) {
+    if (id === null) localStorage.removeItem(storageKey)
+    else localStorage.setItem(storageKey, String(id))
+    setSelectedSeasonIdRaw(id)
+  }
+
+  useEffect(() => {
+    let mounted = true
+    apiFetch<Season[]>('/api/seasons', getAccessTokenSilently)
+      .then((data) => {
+        if (!mounted) return
+        setSeasons(data)
+        if (!defaultedRef.current) {
+          defaultedRef.current = true
+          const stored = localStorage.getItem(storageKey)
+          if (stored && !data.find((s) => s.id === Number(stored))) {
+            setSelectedSeasonId(null)
+          } else if (!stored) {
+            const active = data.find((s) => s.endDate === null)
+            if (active) setSelectedSeasonId(active.id)
+          }
+        }
+      })
+      .catch(() => { if (mounted) { defaultedRef.current = true } })
+    return () => { mounted = false }
+  }, [getAccessTokenSilently, refreshKey])
+
+  return (
+    <SeasonContext.Provider value={{ seasons, selectedSeasonId, setSelectedSeasonId, refreshSeasons: () => setRefreshKey((k) => k + 1) }}>
+      {children}
+    </SeasonContext.Provider>
+  )
 }
 
 type RoomMember = {
@@ -323,40 +400,42 @@ function AuthenticatedShell() {
   }
 
   return (
-    <div className="app-shell">
-      <TopBar room={apiState.activeRoom} userName={user?.name ?? 'Player'} getAccessTokenSilently={getAccessTokenSilently} initialNotifications={initialNotifs ?? undefined} onAvailabilityChanged={() => setFixtureRefreshKey((k) => k + 1)} notifRefreshKey={notifRefreshKey} />
-      <InstallBanner />
-      <main className="app-content">
-        <Routes>
-          <Route path="/players" element={<PlayersView room={apiState.activeRoom} />} />
-          <Route path="/fixtures" element={<FixturesView room={apiState.activeRoom} externalRefreshKey={fixtureRefreshKey} onResultRecorded={() => setNotifRefreshKey((k) => k + 1)} />} />
-          <Route path="/achievements" element={<AchievementsView />} />
-          <Route
-            path="/account"
-            element={
-              <AccountView
-                room={apiState.activeRoom}
-                memberships={apiState.memberships}
-                onRoomChanged={() => setReloadKey((key) => key + 1)}
-                onLogout={() => { track('Signed Out'); resetIdentity(); logout({ logoutParams: { returnTo: window.location.origin } }) }}
-              />
-            }
-          />
-          <Route path="*" element={<Navigate to="/players" replace />} />
-        </Routes>
-      </main>
-      <BottomNav />
-      {pendingJoinCode && (
-        <div className="join-overlay">
-          <RoomGate
-            memberships={apiState.memberships}
-            initialCode={pendingJoinCode}
-            onCancel={() => setPendingJoinCode(null)}
-            onRoomChanged={() => { setPendingJoinCode(null); setReloadKey((k) => k + 1) }}
-          />
-        </div>
-      )}
-    </div>
+    <SeasonProvider room={apiState.activeRoom} getAccessTokenSilently={getAccessTokenSilently}>
+      <div className="app-shell">
+        <TopBar room={apiState.activeRoom} userName={user?.name ?? 'Player'} getAccessTokenSilently={getAccessTokenSilently} initialNotifications={initialNotifs ?? undefined} onAvailabilityChanged={() => setFixtureRefreshKey((k) => k + 1)} notifRefreshKey={notifRefreshKey} />
+        <InstallBanner />
+        <main className="app-content">
+          <Routes>
+            <Route path="/players" element={<PlayersView room={apiState.activeRoom} />} />
+            <Route path="/fixtures" element={<FixturesView room={apiState.activeRoom} externalRefreshKey={fixtureRefreshKey} onResultRecorded={() => setNotifRefreshKey((k) => k + 1)} />} />
+            <Route path="/achievements" element={<AchievementsView />} />
+            <Route
+              path="/account"
+              element={
+                <AccountView
+                  room={apiState.activeRoom}
+                  memberships={apiState.memberships}
+                  onRoomChanged={() => setReloadKey((key) => key + 1)}
+                  onLogout={() => { track('Signed Out'); resetIdentity(); logout({ logoutParams: { returnTo: window.location.origin } }) }}
+                />
+              }
+            />
+            <Route path="*" element={<Navigate to="/players" replace />} />
+          </Routes>
+        </main>
+        <BottomNav />
+        {pendingJoinCode && (
+          <div className="join-overlay">
+            <RoomGate
+              memberships={apiState.memberships}
+              initialCode={pendingJoinCode}
+              onCancel={() => setPendingJoinCode(null)}
+              onRoomChanged={() => { setPendingJoinCode(null); setReloadKey((k) => k + 1) }}
+            />
+          </div>
+        )}
+      </div>
+    </SeasonProvider>
   )
 }
 
@@ -750,6 +829,7 @@ function TopBar({
   notifRefreshKey?: number
 }) {
   const [copied, setCopied] = useState(false)
+  const { seasons, selectedSeasonId, setSelectedSeasonId } = useSeason()
 
   async function shareRoom() {
     const url = `${window.location.origin}?invite=${room.code}`
@@ -774,6 +854,19 @@ function TopBar({
         </div>
       </Link>
       <div className="top-bar-actions">
+        {seasons.length > 0 && (
+          <select
+            className="season-select"
+            value={selectedSeasonId ?? ''}
+            onChange={(e) => setSelectedSeasonId(e.target.value ? Number(e.target.value) : null)}
+            aria-label="Season"
+          >
+            {seasons.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+            <option value="">All time</option>
+          </select>
+        )}
         <NotificationBell getAccessTokenSilently={getAccessTokenSilently} playerId={room.playerId} initialNotifications={initialNotifications} onAvailabilityChanged={onAvailabilityChanged} refreshKey={notifRefreshKey} />
         <button type="button" className="room-code" onClick={shareRoom}>
           {copied ? 'Copied!' : room.code}
@@ -1026,12 +1119,15 @@ function PlayersView({ room }: { room: Room }) {
   const [search, setSearch] = useState('')
   const [showSearch, setShowSearch] = useState(false)
 
+  const { selectedSeasonId } = useSeason()
+
   useEffect(() => {
     let mounted = true
     setFetchError(null)
     async function load() {
       try {
-        const data = await apiFetch<Player[]>('/api/players', getAccessTokenSilently)
+        const url = selectedSeasonId ? `/api/players?seasonId=${selectedSeasonId}` : '/api/players'
+        const data = await apiFetch<Player[]>(url, getAccessTokenSilently)
         if (mounted) setPlayers(data)
       } catch (err) {
         if (mounted) setFetchError(err instanceof Error ? err.message : 'Could not load players')
@@ -1039,7 +1135,7 @@ function PlayersView({ room }: { room: Room }) {
     }
     load()
     return () => { mounted = false }
-  }, [getAccessTokenSilently, refreshKey])
+  }, [getAccessTokenSilently, refreshKey, selectedSeasonId])
 
   const averageRating = players?.length
     ? Math.round(players.reduce((total, player) => total + Number(player.rating), 0) / players.length)
@@ -1291,7 +1387,9 @@ type FixtureDetail = {
 function FixturesView({ room, externalRefreshKey = 0, onResultRecorded }: { room: Room; externalRefreshKey?: number; onResultRecorded?: () => void }) {
   const { getAccessTokenSilently } = useAuth0()
   const [refreshKey, setRefreshKey] = useState(0)
-  const { data: fixtures, error } = useApi<Gameweek[]>(`/api/gameweeks?refresh=${refreshKey}&ext=${externalRefreshKey}`, getAccessTokenSilently)
+  const { selectedSeasonId } = useSeason()
+  const seasonParam = selectedSeasonId ? `&seasonId=${selectedSeasonId}` : ''
+  const { data: fixtures, error } = useApi<Gameweek[]>(`/api/gameweeks?refresh=${refreshKey}&ext=${externalRefreshKey}${seasonParam}`, getAccessTokenSilently)
   const [showNewFixture, setShowNewFixture] = useState(false)
   const [repeatFrom, setRepeatFrom] = useState<Pick<Gameweek, 'location' | 'startTime' | 'maxPlayers'> | null>(null)
   const nextFixture = (fixtures ?? [])
@@ -2344,6 +2442,8 @@ function AccountView({
         />
       ) : null}
 
+      {room.isAdmin ? <SeasonManagementPanel /> : null}
+
       {room.isAdmin ? (
         <div className="collapsible-panel">
           <button className="advanced-toggle" type="button" onClick={() => setShowRoomEdit((value) => !value)}>
@@ -2396,6 +2496,117 @@ function AccountView({
         Sign out
       </button>
     </section>
+  )
+}
+
+function SeasonManagementPanel() {
+  const { getAccessTokenSilently } = useAuth0()
+  const { seasons, refreshSeasons, setSelectedSeasonId } = useSeason()
+  const [showForm, setShowForm] = useState(false)
+  const [name, setName] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+
+  const activeSeason = seasons.find((s) => s.endDate === null) ?? null
+  const pastSeasons = seasons.filter((s) => s.endDate !== null)
+
+  async function createSeason() {
+    if (!name.trim() || !startDate) return
+    setBusy(true)
+    setError(null)
+    try {
+      const season = await apiSend<Season>('/api/seasons', getAccessTokenSilently, { name: name.trim(), startDate })
+      setName('')
+      setStartDate('')
+      setShowForm(false)
+      refreshSeasons()
+      setSelectedSeasonId(season.id)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not create season')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function endSeason(id: number) {
+    setBusy(true)
+    setError(null)
+    try {
+      await apiRequest(`/api/seasons/${id}/end`, getAccessTokenSilently, { method: 'PUT' })
+      refreshSeasons()
+      setSelectedSeasonId(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not end season')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="collapsible-panel">
+      <button className="advanced-toggle" type="button" onClick={() => setOpen((o) => !o)}>
+        <span>Seasons</span>
+        <ChevronDown className={open ? 'open' : ''} size={17} />
+      </button>
+      {open ? (
+        <div className="season-panel">
+          {error ? <InlineError message={error} /> : null}
+          {activeSeason ? (
+            <div className="season-active-card">
+              <div>
+                <strong>{activeSeason.name}</strong>
+                <span>Started {new Date(activeSeason.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+              </div>
+              <button type="button" className="season-end-btn" disabled={busy} onClick={() => endSeason(activeSeason.id)}>
+                End season
+              </button>
+            </div>
+          ) : (
+            <p className="muted-note">No active season. Create one to start tracking seasonal stats.</p>
+          )}
+          {pastSeasons.length > 0 ? (
+            <div className="season-past-list">
+              {pastSeasons.map((s) => (
+                <div className="season-past-row" key={s.id}>
+                  <span>{s.name}</span>
+                  <span className="muted-note">
+                    {new Date(s.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    {' – '}
+                    {new Date(s.endDate!).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {!showForm ? (
+            <button type="button" className="secondary-action compact" onClick={() => setShowForm(true)}>
+              <Plus size={15} /> New season
+            </button>
+          ) : (
+            <div className="season-form">
+              <label>
+                Season name
+                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Summer 2025" autoFocus />
+              </label>
+              <label>
+                Start date
+                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              </label>
+              <div className="form-row">
+                <button className="primary-action compact" type="button" onClick={createSeason} disabled={busy || !name.trim() || !startDate}>
+                  Create
+                </button>
+                <button className="secondary-action" type="button" onClick={() => { setShowForm(false); setError(null) }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
+    </div>
   )
 }
 
