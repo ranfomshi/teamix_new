@@ -1,0 +1,265 @@
+/* =============================================
+   How It Works Page — HowItWorksPage.css
+   Dark green theme, mobile-first
+   ============================================= */
+
+.hiw-page {
+  min-height: 100dvh;
+  background-color: #10251d;
+  color: #fff;
+  font-family: inherit;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Header ---- */
+
+.hiw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #10251d;
+}
+
+.hiw-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  text-decoration: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.hiw-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.hiw-header-cta {
+  background-color: #1cb36b;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.hiw-header-cta:hover {
+  background-color: #17a060;
+}
+
+/* ---- Main ---- */
+
+.hiw-main {
+  flex: 1;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+/* ---- Intro ---- */
+
+.hiw-intro {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.hiw-intro h1 {
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  font-weight: 800;
+  line-height: 1.15;
+  margin: 0 0 0.75rem;
+  color: #fff;
+}
+
+.hiw-subtitle {
+  font-size: 1.05rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+/* ---- Steps list ---- */
+
+.hiw-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.hiw-step {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: border-color 0.15s ease;
+}
+
+.hiw-step:hover {
+  border-color: rgba(28, 179, 107, 0.4);
+}
+
+.hiw-step-number {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background-color: #1cb36b;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.15rem;
+}
+
+.hiw-step-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.hiw-step-content h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 0.6rem;
+  color: #fff;
+}
+
+.hiw-step-content p {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.65;
+  margin: 0 0 0.6rem;
+}
+
+.hiw-step-content p:last-child {
+  margin-bottom: 0;
+}
+
+.hiw-step-content strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ---- CTA section ---- */
+
+.hiw-cta-section {
+  margin-top: 3.5rem;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  background: linear-gradient(135deg, rgba(28, 179, 107, 0.12), rgba(28, 179, 107, 0.04));
+  border: 1px solid rgba(28, 179, 107, 0.25);
+  border-radius: 16px;
+}
+
+.hiw-cta-section h2 {
+  font-size: clamp(1.25rem, 4vw, 1.75rem);
+  font-weight: 800;
+  margin: 0 0 0.75rem;
+  color: #fff;
+}
+
+.hiw-cta-section p {
+  font-size: 0.975rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 1.5rem;
+  line-height: 1.6;
+}
+
+.hiw-cta-button {
+  display: inline-block;
+  background-color: #1cb36b;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 0.875rem 1.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.hiw-cta-button:hover {
+  background-color: #17a060;
+  transform: translateY(-1px);
+}
+
+.hiw-cta-button:active {
+  transform: translateY(0);
+}
+
+.hiw-back-link {
+  display: block;
+  margin-top: 1.25rem;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.hiw-back-link:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ---- Footer ---- */
+
+.hiw-footer {
+  text-align: center;
+  padding: 1.5rem 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.8rem;
+}
+
+/* ---- Responsive tweaks ---- */
+
+@media (min-width: 480px) {
+  .hiw-step-number {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1rem;
+  }
+
+  .hiw-step-content h2 {
+    font-size: 1.25rem;
+  }
+
+  .hiw-step-content p {
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 640px) {
+  .hiw-header {
+    padding: 1rem 2rem;
+  }
+
+  .hiw-main {
+    padding: 2.5rem 2rem 4rem;
+  }
+
+  .hiw-step {
+    padding: 1.75rem 2rem;
+    gap: 1.5rem;
+  }
+}

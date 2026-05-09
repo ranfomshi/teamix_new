@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://teamix.app/sitemap.xml
