@@ -371,18 +371,27 @@ button {
 }
 
 .season-select {
+  appearance: none;
+  -webkit-appearance: none;
   height: 36px;
-  padding: 0 8px;
+  padding: 0 26px 0 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgb(255 255 255 / 8%);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23718f82' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 8px center,
+    rgb(255 255 255 / 8%);
   color: var(--ink);
+  color-scheme: dark;
   font: inherit;
   font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
-  max-width: 120px;
-  text-overflow: ellipsis;
+  max-width: 130px;
+  transition: background-color 0.15s;
+}
+
+.season-select:hover {
+  background-color: rgb(255 255 255 / 14%);
 }
 
 .season-select:focus {
