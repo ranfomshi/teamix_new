@@ -1643,6 +1643,10 @@ button {
   font-size: 0.9rem;
 }
 
+.team-list span.player-ex {
+  opacity: 0.4;
+}
+
 .mini-player-list {
   display: flex;
   flex-wrap: wrap;

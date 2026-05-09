@@ -1103,7 +1103,8 @@ export const handler: Handler = async (event) => {
                  'name', p.name,
                  'rating', p.rating,
                  'profilePicture', p."profilePicture",
-                 'auth0Id', rm."auth0Id"
+                 'auth0Id', rm."auth0Id",
+                 'isMember', COALESCE(rm."isMember", false)
                ) AS "Player"
         FROM public."TeamAssignments" ta
         JOIN public."Players" p ON p.id = ta."playerId"

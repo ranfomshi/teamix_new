@@ -60,6 +60,7 @@ type Player = {
   goalsFor?: number
   goalsAgainst?: number
   recentForm?: Array<'W' | 'D' | 'L'>
+  isMember?: boolean
   fullForm?: Array<'W' | 'D' | 'L'>
 }
 
@@ -2141,7 +2142,7 @@ function TeamList({ title, color, players }: { title: string; color: string; pla
   return (
     <div className="team-list" style={{ borderColor: color }}>
       <strong>{title}</strong>
-      {players.map((player) => <span key={player.id}>{player.name}</span>)}
+      {players.map((player) => <span key={player.id} className={player.isMember === false ? 'player-ex' : undefined}>{player.name}</span>)}
     </div>
   )
 }
