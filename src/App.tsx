@@ -425,7 +425,7 @@ function AuthenticatedShell() {
   return (
     <SeasonProvider room={apiState.activeRoom} getAccessTokenSilently={getAccessTokenSilently}>
       <div className="app-shell">
-        <TopBar room={apiState.activeRoom} userName={user?.name ?? 'Player'} getAccessTokenSilently={getAccessTokenSilently} initialNotifications={initialNotifs ?? undefined} onAvailabilityChanged={() => setFixtureRefreshKey((k) => k + 1)} notifRefreshKey={notifRefreshKey} />
+        <TopBar room={apiState.activeRoom} userName={user?.name ?? 'Player'} getAccessTokenSilently={getAccessTokenSilently} initialNotifications={initialNotifs ?? undefined} onAvailabilityChanged={() => setFixtureRefreshKey((k) => k + 1)} notifRefreshKey={notifRefreshKey} memberships={apiState.memberships} onRoomChanged={() => setReloadKey((key) => key + 1)} />
         <InstallBanner />
         <main className="app-content">
           <Routes>
@@ -845,6 +845,8 @@ function TopBar({
   initialNotifications,
   onAvailabilityChanged,
   notifRefreshKey,
+  memberships,
+  onRoomChanged,
 }: {
   room: Room
   userName: string
@@ -852,9 +854,14 @@ function TopBar({
   initialNotifications?: AppNotification[]
   onAvailabilityChanged?: () => void
   notifRefreshKey?: number
+  memberships: Room[]
+  onRoomChanged: () => void
 }) {
   const [copied, setCopied] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [switching, setSwitching] = useState<number | null>(null)
   const { seasons, selectedSeasonId, setSelectedSeasonId } = useSeason()
+  const otherRooms = memberships.filter((m) => m.roomId !== room.roomId)
 
   async function shareRoom() {
     const url = `${window.location.origin}?invite=${room.code}`
@@ -866,6 +873,18 @@ function TopBar({
       await navigator.clipboard.writeText(url)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  async function switchRoom(roomId: number) {
+    setSwitching(roomId)
+    try {
+      await apiSend('/api/set-active-room', getAccessTokenSilently, { roomId })
+      track('Room Switched', { room_id: roomId, via: 'topbar' })
+      onRoomChanged()
+    } catch { /* ignore */ } finally {
+      setSwitching(null)
+      setMenuOpen(false)
     }
   }
 
@@ -893,9 +912,39 @@ function TopBar({
           </select>
         )}
         <NotificationBell getAccessTokenSilently={getAccessTokenSilently} playerId={room.playerId} initialNotifications={initialNotifications} onAvailabilityChanged={onAvailabilityChanged} refreshKey={notifRefreshKey} />
-        <button type="button" className="room-code" onClick={shareRoom}>
-          {copied ? 'Copied!' : room.code}
-        </button>
+        <div className="room-code-wrap">
+          <button type="button" className={`room-code${menuOpen ? ' active' : ''}`} onClick={() => setMenuOpen((o) => !o)}>
+            {room.code}
+          </button>
+          {menuOpen && (
+            <>
+              <div className="room-menu-backdrop" onClick={() => setMenuOpen(false)} />
+              <div className="room-menu">
+                <button type="button" className="room-menu-item" onClick={() => { shareRoom(); setMenuOpen(false) }}>
+                  <Share2 size={14} />
+                  {copied ? 'Copied!' : 'Share invite link'}
+                </button>
+                {otherRooms.length > 0 && (
+                  <>
+                    <div className="room-menu-divider" />
+                    {otherRooms.map((r) => (
+                      <button
+                        key={r.roomId}
+                        type="button"
+                        className="room-menu-item"
+                        disabled={switching === r.roomId}
+                        onClick={() => switchRoom(r.roomId)}
+                      >
+                        <Shirt size={14} />
+                        {r.name}
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </header>
   )

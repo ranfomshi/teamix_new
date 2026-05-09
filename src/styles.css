@@ -651,8 +651,63 @@ button {
   transition: background 0.15s;
 }
 
-.room-code:hover {
+.room-code:hover,
+.room-code.active {
   background: rgb(255 255 255 / 14%);
+}
+
+.room-code-wrap {
+  position: relative;
+}
+
+.room-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+
+.room-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 11;
+  min-width: 180px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 40%);
+}
+
+.room-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.room-menu-item:hover:not(:disabled) {
+  background: rgb(255 255 255 / 8%);
+}
+
+.room-menu-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.room-menu-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line);
 }
 
 .app-content {
