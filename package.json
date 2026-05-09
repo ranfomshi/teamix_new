@@ -12,6 +12,7 @@
     "db:init": "netlify database init"
   },
   "devDependencies": {
+    "@types/mixpanel-browser": "^2.60.0",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -27,6 +28,7 @@
     "@netlify/functions": "^5.2.0",
     "jose": "^6.2.3",
     "lucide-react": "^1.14.0",
+    "mixpanel-browser": "^2.78.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2"

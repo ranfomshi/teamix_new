@@ -28,6 +28,7 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { BrowserRouter } from 'react-router-dom'
+import { identify, track, resetIdentity } from './analytics'
 
 type Room = {
   roomId: number
@@ -177,6 +178,7 @@ function AppFrame() {
     function handleLogin() {
       const invite = new URLSearchParams(window.location.search).get('invite')
       if (invite) sessionStorage.setItem('pendingInvite', invite)
+      track('Login Initiated', { has_invite: Boolean(invite) })
       loginWithRedirect()
     }
     return <Welcome onLogin={handleLogin} />
@@ -249,6 +251,34 @@ function AuthenticatedShell() {
     }
   }, [getAccessTokenSilently, reloadKey])
 
+  // Identify the user in Mixpanel once room data is loaded.
+  useEffect(() => {
+    if (!user?.sub || !apiState?.activeRoom) return
+    const room = apiState.activeRoom
+    identify(user.sub, {
+      $name: user.name,
+      $email: user.email,
+      room_id: room.roomId,
+      room_name: room.name,
+      is_admin: room.isAdmin,
+      sport: room.sportName ?? null,
+      platform: isRunningStandalone() ? 'pwa' : 'browser',
+    })
+  }, [user?.sub, apiState?.activeRoom?.roomId])
+
+  // Track tab navigation.
+  const location = useLocation()
+  useEffect(() => {
+    const tabMap: Record<string, string> = {
+      '/players': 'Players',
+      '/fixtures': 'Fixtures',
+      '/achievements': 'Trophies',
+      '/account': 'Account',
+    }
+    const tab = tabMap[location.pathname]
+    if (tab) track('Tab Viewed', { tab })
+  }, [location.pathname])
+
   // Fire-and-forget: keep the cached avatar URL in sync on every login.
   useEffect(() => {
     if (!user?.picture) return
@@ -298,7 +328,7 @@ function AuthenticatedShell() {
                 room={apiState.activeRoom}
                 memberships={apiState.memberships}
                 onRoomChanged={() => setReloadKey((key) => key + 1)}
-                onLogout={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+                onLogout={() => { track('Signed Out'); resetIdentity(); logout({ logoutParams: { returnTo: window.location.origin } }) }}
               />
             }
           />
@@ -354,6 +384,7 @@ function InstallBanner() {
   if (standalone || dismissed) return null
 
   function dismiss() {
+    track('Install Banner Dismissed', { platform: ios ? 'ios' : 'android' })
     localStorage.setItem('pwa-dismissed', '1')
     setDismissed(true)
   }
@@ -361,8 +392,10 @@ function InstallBanner() {
   async function install() {
     const event = getInstallPrompt()
     if (!event) return
+    track('Install Prompted')
     await event.prompt()
     const { outcome } = await event.userChoice
+    track('Install Outcome', { outcome })
     if (outcome === 'accepted') { clearInstallPrompt(); setHasPrompt(false) }
   }
 
@@ -508,6 +541,7 @@ function RoomGate({
     setError(null)
     try {
       await apiSend('/api/set-active-room', getAccessTokenSilently, { roomId })
+      track('Room Switched', { room_id: roomId })
       onRoomChanged()
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Could not activate room')
@@ -543,6 +577,12 @@ function RoomGate({
         skillLevel,
         profilePicture: user?.picture ?? null,
       })
+      track('Room Joined', {
+        room_code: roomCode,
+        linked_existing_player: Boolean(playerId),
+        skill_level: skillLevel,
+        via_invite: Boolean(new URLSearchParams(window.location.search).get('invite') || sessionStorage.getItem('pendingInvite')),
+      })
       window.history.replaceState({}, '', window.location.pathname)
       onRoomChanged()
     } catch (caughtError) {
@@ -562,6 +602,10 @@ function RoomGate({
         sportId: Number(sportId),
         skillLevel,
         profilePicture: user?.picture ?? null,
+      })
+      track('Room Created', {
+        sport_id: sportId,
+        skill_level: skillLevel,
       })
       onRoomChanged()
     } catch (caughtError) {
@@ -753,6 +797,7 @@ function NotificationBell({
   }
 
   function handleBellClick() {
+    if (!open) track('Notification Bell Opened', { unread_count: notifications.length })
     setOpen((o) => !o)
   }
 
@@ -761,6 +806,7 @@ function NotificationBell({
     setError(null)
     try {
       await apiSend('/api/votes', getAccessTokenSilently, { gameweekId, votedPlayerId })
+      track('Vote Cast', { fixture_id: gameweekId, voted_player_id: votedPlayerId, source: 'notification' })
       setNotifications((prev) => prev.filter((n) => n.type === 'achievement' || n.gameweekId !== gameweekId))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to cast vote')
@@ -774,6 +820,7 @@ function NotificationBell({
     setError(null)
     try {
       await apiSend('/api/availability', getAccessTokenSilently, { gameweekId, playerId, status })
+      track('Availability Set', { fixture_id: gameweekId, status: status ? 'available' : 'out', source: 'notification' })
       setNotifications((prev) => prev.filter((n) => n.type === 'achievement' || n.gameweekId !== gameweekId))
       onAvailabilityChanged?.()
     } catch (e) {
@@ -1103,6 +1150,7 @@ function AddPlayerForm({ onCreated, existingNames }: { onCreated: () => void; ex
     setError(null)
     try {
       await apiSend('/api/players', getAccessTokenSilently, { name: name.trim(), skillLevel })
+      track('Player Added', { skill_level: skillLevel })
       onCreated()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not add player')
@@ -1190,6 +1238,7 @@ function DeletePlayerConfirm({ player, onDeleted, onCancel }: { player: Player; 
     setError(null)
     try {
       await apiRequest(`/api/players/${player.id}`, getAccessTokenSilently, { method: 'DELETE' })
+      track('Player Deleted', { player_id: player.id })
       onDeleted()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete player')
@@ -1282,7 +1331,7 @@ function FixturesView({ room, externalRefreshKey = 0, onResultRecorded }: { room
             room={room}
             onDeleted={() => setRefreshKey((key) => key + 1)}
             onResultRecorded={onResultRecorded}
-            onRepeat={room.isAdmin ? (f) => { setRepeatFrom(f); setShowNewFixture(true); window.scrollTo({ top: 0, behavior: 'smooth' }) } : undefined}
+            onRepeat={room.isAdmin ? (f) => { track('Fixture Repeat Initiated', { source_fixture_id: f.id }); setRepeatFrom(f); setShowNewFixture(true); window.scrollTo({ top: 0, behavior: 'smooth' }) } : undefined}
           />
         ))}
       </div>
@@ -1308,6 +1357,12 @@ function NewFixtureForm({ onCreated, pastLocations, initialValues }: { onCreated
         startTime: startTime || null,
         location: location || null,
         maxPlayers: maxPlayers ? Number(maxPlayers) : null,
+      })
+      track('Fixture Created', {
+        is_repeat: Boolean(initialValues),
+        has_time: Boolean(startTime),
+        has_location: Boolean(location),
+        has_max_players: Boolean(maxPlayers),
       })
       onCreated()
     } catch (caughtError) {
@@ -1514,6 +1569,7 @@ function FixtureCard({
         playerId,
         team,
       })
+      track('Player Assigned to Team', { fixture_id: fixture.id, player_id: playerId, team })
       setDetailKey((key) => key + 1)
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Could not update team')
@@ -1525,6 +1581,7 @@ function FixtureCard({
     setError(null)
     try {
       await apiRequest(`/api/gameweeks/${fixture.id}`, getAccessTokenSilently, { method: 'DELETE' })
+      track('Fixture Deleted', { fixture_id: fixture.id, fixture_date: fixture.date })
       onDeleted()
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Could not delete fixture')
@@ -1545,6 +1602,13 @@ function FixtureCard({
         gameweekId: fixture.id,
         status,
       })
+      track('Availability Set', {
+        fixture_id: fixture.id,
+        fixture_date: fixture.date,
+        status: status ? 'available' : 'out',
+        is_for_self: playerId === room.playerId,
+        source: 'fixture_card',
+      })
       setDetailKey((key) => key + 1)
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Could not update availability')
@@ -1560,6 +1624,7 @@ function FixtureCard({
         gameweekId: fixture.id,
         votedPlayerId: playerId,
       })
+      track('Vote Cast', { fixture_id: fixture.id, voted_player_id: playerId, source: 'fixture_card' })
       const updated = await apiFetch<Gameweek>(`/api/gameweeks/${fixture.id}`, getAccessTokenSilently)
       setLocalPoM(updated.playerOfTheMatch ?? [])
       setDetailKey((key) => key + 1)
@@ -1589,9 +1654,13 @@ function FixtureCard({
     lines.push(`\n${window.location.origin}/fixtures`)
     const text = lines.join('\n')
     if (navigator.share) {
-      try { await navigator.share({ title: `Teamix fixture – ${dateStr}`, text }) } catch { /* cancelled */ }
+      try {
+        await navigator.share({ title: `Teamix fixture – ${dateStr}`, text })
+        track('Fixture Shared', { fixture_id: fixture.id, method: 'native_share', has_teams: teamAPlayers.length > 0 || teamBPlayers.length > 0 })
+      } catch { /* cancelled */ }
     } else {
       await navigator.clipboard.writeText(text)
+      track('Fixture Shared', { fixture_id: fixture.id, method: 'clipboard', has_teams: teamAPlayers.length > 0 || teamBPlayers.length > 0 })
       setShareCopied(true)
       setTimeout(() => setShareCopied(false), 2000)
     }
@@ -1606,7 +1675,17 @@ function FixtureCard({
 
   return (
     <article className={`fixture-card ${expanded ? 'expanded' : ''}`}>
-      <button className="fixture-row fixture-toggle" type="button" onClick={() => setExpanded((value) => !value)}>
+      <button className="fixture-row fixture-toggle" type="button" onClick={() => {
+        if (!expanded) track('Fixture Expanded', {
+          fixture_id: fixture.id,
+          fixture_date: fixture.date,
+          is_past: isPast,
+          has_result: Boolean(gameResult),
+          available_count: localAvailableCount,
+          max_players: localMaxPlayers,
+        })
+        setExpanded((value) => !value)
+      }}>
         <div className="fixture-date">
           <strong>{new Date(localDate).toLocaleDateString(undefined, { day: '2-digit' })}</strong>
           <span>{new Date(localDate).toLocaleDateString(undefined, { month: 'short' })}</span>
@@ -2120,10 +2199,19 @@ function ResultForm({
     setSaving(true)
     setMessage(null)
     try {
+      const scoreA = Number(teamA)
+      const scoreB = Number(teamB)
       const savedResult = await apiSend<NonNullable<Gameweek['gameResult']>>('/api/gameresults', getAccessTokenSilently, {
         gameweekId: fixture.id,
-        teamA_score: Number(teamA),
-        teamB_score: Number(teamB),
+        teamA_score: scoreA,
+        teamB_score: scoreB,
+      })
+      track('Result Recorded', {
+        fixture_id: fixture.id,
+        score_a: scoreA,
+        score_b: scoreB,
+        outcome: scoreA > scoreB ? 'team_a_win' : scoreB > scoreA ? 'team_b_win' : 'draw',
+        is_edit: Boolean(fixture.gameResult),
       })
       setMessage('Result saved')
       onSaved(savedResult)
@@ -2188,6 +2276,12 @@ function AccountView({
           teamAColor,
           teamBColor,
         },
+      })
+      track('Room Settings Saved', {
+        room_id: room.roomId,
+        changed_name: roomName !== room.name,
+        changed_sport: sportId !== (room.sportId ?? ''),
+        changed_colors: teamAColor !== (room.teamAColor ?? '#28d17c') || teamBColor !== (room.teamBColor ?? '#f5c84b'),
       })
       setSaveState('Room updated.')
       onRoomChanged()
@@ -2814,6 +2908,8 @@ function AchievementsView() {
         }
         const data = await apiFetch<FullAchievement[]>('/api/player-achievements', getAccessTokenSilently)
         setAchievements(data)
+        const earned = data.filter((a) => a.isCompleted).length
+        track('Achievements Viewed', { earned_count: earned, total_count: data.length, completion_pct: data.length ? Math.round((earned / data.length) * 100) : 0 })
       } catch (e) {
         setFetchError(e instanceof Error ? e.message : 'Could not load achievements')
       }
