@@ -475,10 +475,20 @@ function Welcome({ onLogin }: { onLogin: () => void }) {
           Get started
           <ChevronRight size={18} />
         </button>
-        <Link to="/features" className="welcome-secondary-link">See all features →</Link>
-        <Link to="/how-it-works" className="welcome-secondary-link">How it works →</Link>
+        <div className="welcome-nav-links">
+          <Link to="/features" className="welcome-nav-link">
+            <span>Features</span>
+            <small>What Teamix does</small>
+          </Link>
+          <Link to="/how-it-works" className="welcome-nav-link">
+            <span>How it works</span>
+            <small>Step-by-step guide</small>
+          </Link>
+        </div>
       </section>
-
+      <footer className="welcome-footer">
+        Free to use &middot; No ads &middot; Works offline
+      </footer>
     </main>
   )
 }

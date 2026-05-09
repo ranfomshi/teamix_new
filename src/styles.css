@@ -117,6 +117,61 @@ button {
   line-height: 1.55;
 }
 
+.welcome-nav-links {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 20px;
+  width: min(100%, 360px);
+}
+
+.welcome-nav-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 64px;
+  padding: 12px 10px;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 5%);
+  color: var(--ink);
+  text-align: center;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.welcome-nav-link:hover,
+.welcome-nav-link:focus-visible {
+  background: rgb(40 209 124 / 10%);
+  border-color: rgb(40 209 124 / 40%);
+  outline: none;
+}
+
+.welcome-nav-link span {
+  display: block;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.welcome-nav-link small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.welcome-footer {
+  padding: 14px 22px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
 .primary-action,
 .secondary-action,
 .screen-header button,
@@ -2424,6 +2479,10 @@ button {
   }
 
   .welcome-hero {
+    padding-inline: 44px;
+  }
+
+  .welcome-footer {
     padding-inline: 44px;
   }
 }
