@@ -146,13 +146,13 @@ function SeasonProvider({
   const [refreshKey, setRefreshKey] = useState(0)
   const [selectedSeasonId, setSelectedSeasonIdRaw] = useState<number | null>(() => {
     const stored = localStorage.getItem(storageKey)
-    return stored ? Number(stored) : null
+    if (!stored || stored === 'all') return null
+    return Number(stored)
   })
   const defaultedRef = useRef(false)
 
   function setSelectedSeasonId(id: number | null) {
-    if (id === null) localStorage.removeItem(storageKey)
-    else localStorage.setItem(storageKey, String(id))
+    localStorage.setItem(storageKey, id === null ? 'all' : String(id))
     setSelectedSeasonIdRaw(id)
   }
 
@@ -165,12 +165,15 @@ function SeasonProvider({
         if (!defaultedRef.current) {
           defaultedRef.current = true
           const stored = localStorage.getItem(storageKey)
-          if (stored && !data.find((s) => s.id === Number(stored))) {
-            setSelectedSeasonId(null)
-          } else if (!stored) {
+          if (!stored) {
+            // First ever visit — default to active season
             const active = data.find((s) => s.endDate === null)
             if (active) setSelectedSeasonId(active.id)
+          } else if (stored !== 'all' && !data.find((s) => s.id === Number(stored))) {
+            // Stored season no longer exists
+            setSelectedSeasonId(null)
           }
+          // 'all' or valid season id — keep as-is
         }
       })
       .catch(() => { if (mounted) { defaultedRef.current = true } })
