@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { track } from '../analytics'
 import './HowItWorksPage.css'
 
 interface HowItWorksPageProps {
@@ -6,6 +8,8 @@ interface HowItWorksPageProps {
 }
 
 export default function HowItWorksPage({ onLogin }: HowItWorksPageProps) {
+  useEffect(() => { track('Page Viewed', { page: 'how-it-works' }) }, [])
+
   return (
     <div className="hiw-page">
       <header className="hiw-header">
@@ -121,7 +125,7 @@ export default function HowItWorksPage({ onLogin }: HowItWorksPageProps) {
                 automatically — everyone in the room gets to cast their vote.
               </p>
               <p>
-                Votes are anonymous and close after 24 hours. The winner gets a badge and
+                Votes are anonymous and close after 48 hours. The winner gets a badge and
                 a boost to their form score heading into the next game.
               </p>
             </div>

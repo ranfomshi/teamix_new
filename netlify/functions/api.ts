@@ -2112,15 +2112,22 @@ async function awardAchievementsForGameweek(gameweekId: number, roomId: number, 
           DO UPDATE SET "earnedAt" = LEAST("PlayerAchievements"."earnedAt", EXCLUDED."earnedAt"), "updatedAt" = NOW()
         `
       } else if (seasonId !== null) {
-        // Seasonal: insert with seasonId (only if within a season)
+        // Seasonal within an explicit season — re-earnable per season
         await db.sql`
           INSERT INTO public."PlayerAchievements" ("playerId", "achievementId", "roomId", "seasonId", "earnedAt", "createdAt", "updatedAt")
           VALUES (${assignment.playerId}, ${achievementId}, ${roomId}, ${seasonId}, ${earnedAt}, NOW(), NOW())
           ON CONFLICT ("playerId", "achievementId", "seasonId") WHERE "seasonId" IS NOT NULL
           DO UPDATE SET "earnedAt" = LEAST("PlayerAchievements"."earnedAt", EXCLUDED."earnedAt"), "updatedAt" = NOW()
         `
+      } else {
+        // Seasonal but no season exists — treat room as one ongoing season (earn-once)
+        await db.sql`
+          INSERT INTO public."PlayerAchievements" ("playerId", "achievementId", "roomId", "seasonId", "earnedAt", "createdAt", "updatedAt")
+          VALUES (${assignment.playerId}, ${achievementId}, ${roomId}, NULL, ${earnedAt}, NOW(), NOW())
+          ON CONFLICT ("playerId", "achievementId") WHERE "seasonId" IS NULL
+          DO UPDATE SET "earnedAt" = LEAST("PlayerAchievements"."earnedAt", EXCLUDED."earnedAt"), "updatedAt" = NOW()
+        `
       }
-      // If seasonal but no season found, skip (can't scope to a season)
     }
   }
 }

@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { track } from '../analytics'
 import './FeaturesPage.css'
 
 interface FeaturesPageProps {
@@ -6,6 +8,8 @@ interface FeaturesPageProps {
 }
 
 export default function FeaturesPage({ onLogin }: FeaturesPageProps) {
+  useEffect(() => { track('Page Viewed', { page: 'features' }) }, [])
+
   return (
     <div className="features-page">
       <header className="features-header">
@@ -61,7 +65,7 @@ export default function FeaturesPage({ onLogin }: FeaturesPageProps) {
                 no last-minute spreadsheet.
               </p>
               <ul className="feature-detail-list">
-                <li>In / Out / Maybe responses per fixture</li>
+                <li>In / Out responses per fixture</li>
                 <li>Live headcount as responses come in</li>
                 <li>Only available players are included in team selection</li>
               </ul>
@@ -97,7 +101,7 @@ export default function FeaturesPage({ onLogin }: FeaturesPageProps) {
                 <li>Hat-trick hero, win streak, and clean sheet badges</li>
                 <li>Loyalty awards for showing up consistently</li>
                 <li>Trophy cabinet visible on every player profile</li>
-                <li>Achievements announced in the feed when unlocked</li>
+                <li>Achievements announced via notifications when unlocked</li>
               </ul>
             </article>
 
@@ -143,7 +147,7 @@ export default function FeaturesPage({ onLogin }: FeaturesPageProps) {
               </p>
               <ul className="feature-detail-list">
                 <li>Installable on iOS, Android, and desktop</li>
-                <li>Offline-capable — recent fixtures load without signal</li>
+                <li>Installs to your home screen like a native app</li>
                 <li>No app store download required</li>
                 <li>Always up to date — no manual updates needed</li>
               </ul>
