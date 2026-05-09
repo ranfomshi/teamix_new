@@ -568,7 +568,7 @@ function Welcome({ onLogin }: { onLogin: () => void }) {
         </div>
       </section>
       <footer className="welcome-footer">
-        Free to use &middot; No ads &middot; Works offline
+        Free to use &middot; No ads &middot; Installs on your home screen
       </footer>
     </main>
   )
