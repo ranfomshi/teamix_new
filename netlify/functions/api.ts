@@ -72,6 +72,36 @@ const tablesReady = (async () => {
   } catch (e) {
     console.error('[teamix] GameResults teamB_chemistry column init failed:', e)
   }
+  try {
+    await db.sql`ALTER TABLE public."Achievements" ADD COLUMN IF NOT EXISTS "isAllTime" BOOLEAN NOT NULL DEFAULT false`
+  } catch (e) {
+    console.error('[teamix] Achievements isAllTime column init failed:', e)
+  }
+  try {
+    await db.sql`UPDATE public."Achievements" SET "isAllTime" = true WHERE id IN (8, 9)`
+  } catch (e) {
+    console.error('[teamix] Achievements isAllTime seed failed:', e)
+  }
+  try {
+    await db.sql`ALTER TABLE public."PlayerAchievements" ADD COLUMN IF NOT EXISTS "seasonId" INTEGER REFERENCES public."Seasons"(id)`
+  } catch (e) {
+    console.error('[teamix] PlayerAchievements seasonId column init failed:', e)
+  }
+  try {
+    await db.sql`ALTER TABLE public."PlayerAchievements" DROP CONSTRAINT IF EXISTS "PlayerAchievements_playerId_achievementId_key"`
+  } catch (e) {
+    console.error('[teamix] PlayerAchievements drop unique constraint failed:', e)
+  }
+  try {
+    await db.sql`CREATE UNIQUE INDEX IF NOT EXISTS "pa_alltime_unique" ON public."PlayerAchievements" ("playerId", "achievementId") WHERE "seasonId" IS NULL`
+  } catch (e) {
+    console.error('[teamix] pa_alltime_unique index init failed:', e)
+  }
+  try {
+    await db.sql`CREATE UNIQUE INDEX IF NOT EXISTS "pa_seasonal_unique" ON public."PlayerAchievements" ("playerId", "achievementId", "seasonId") WHERE "seasonId" IS NOT NULL`
+  } catch (e) {
+    console.error('[teamix] pa_seasonal_unique index init failed:', e)
+  }
 })()
 
 export const handler: Handler = async (event) => {
@@ -764,10 +794,11 @@ export const handler: Handler = async (event) => {
 
     if (playerAchievementsMatch && method === 'GET') {
       const playerId = Number(playerAchievementsMatch[1])
-      const achievements = await db.sql<{ id: number; title: string; description: string; earnedAt: string }>`
-        SELECT a.id, a.title, a.description, pa."earnedAt"
+      const achievements = await db.sql<{ id: number; title: string; description: string; earnedAt: string; seasonName: string | null }>`
+        SELECT a.id, a.title, a.description, pa."earnedAt", s.name AS "seasonName"
         FROM public."PlayerAchievements" pa
         JOIN public."Achievements" a ON a.id = pa."achievementId"
+        LEFT JOIN public."Seasons" s ON s.id = pa."seasonId"
         WHERE pa."playerId" = ${playerId}
           AND pa."roomId" = ${active.roomId}
           AND a."isActive" = true
@@ -1324,16 +1355,27 @@ export const handler: Handler = async (event) => {
 
     if (method === 'GET' && route === '/player-achievements') {
       const achievements = await db.sql`
-        SELECT a.id, a.title, a.description,
-               (pa."achievementId" IS NOT NULL) AS "isCompleted",
-               pa."earnedAt"
+        SELECT a.id AS "achievementId", a.title, a.description, a."isAllTime",
+               pa."earnedAt", pa."seasonId", s.name AS "seasonName",
+               true AS "isCompleted"
+        FROM public."PlayerAchievements" pa
+        JOIN public."Achievements" a ON a.id = pa."achievementId"
+        LEFT JOIN public."Seasons" s ON s.id = pa."seasonId"
+        WHERE pa."playerId" = ${active.playerId}
+          AND pa."roomId" = ${active.roomId}
+          AND a."isActive" = true
+        UNION ALL
+        SELECT a.id, a.title, a.description, a."isAllTime",
+               NULL, NULL, NULL, false
         FROM public."Achievements" a
-        LEFT JOIN public."PlayerAchievements" pa
-          ON pa."achievementId" = a.id
-         AND pa."playerId" = ${active.playerId}
-         AND pa."roomId" = ${active.roomId}
         WHERE a."isActive" = true
-        ORDER BY a.id
+          AND a.id NOT IN (
+            SELECT pa2."achievementId"
+            FROM public."PlayerAchievements" pa2
+            WHERE pa2."playerId" = ${active.playerId}
+              AND pa2."roomId" = ${active.roomId}
+          )
+        ORDER BY "isAllTime" DESC, "achievementId"
       `
       return json(achievements)
     }
@@ -2017,6 +2059,19 @@ async function awardAchievementsForGameweek(gameweekId: number, roomId: number, 
   `
   const earnedAt = gameweek?.date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10)
 
+  // Look up which season this gameweek falls in
+  const [seasonRow] = await db.sql<{ seasonId: number; startDate: string; endDate: string }>`
+    SELECT id AS "seasonId", "startDate"::text, COALESCE("endDate"::text, '9999-12-31') AS "endDate"
+    FROM public."Seasons"
+    WHERE "roomId" = ${roomId}
+      AND "startDate" <= (SELECT date FROM public."Gameweeks" WHERE id = ${gameweekId})
+      AND (COALESCE("endDate", '9999-12-31'::date) >= (SELECT date FROM public."Gameweeks" WHERE id = ${gameweekId}))
+    LIMIT 1
+  `
+  const seasonId: number | null = seasonRow?.seasonId ?? null
+  const seasonStart: string | undefined = seasonRow?.startDate
+  const seasonEnd: string | undefined = seasonRow?.endDate
+
   const assignments = await db.sql<{ playerId: number; team: string }>`
     SELECT "playerId", team
     FROM public."TeamAssignments"
@@ -2034,16 +2089,38 @@ async function awardAchievementsForGameweek(gameweekId: number, roomId: number, 
       team: assignment.team,
       teamA_score,
       teamB_score,
+      seasonStart,
+      seasonEnd,
     })
 
+    if (eligibleIds.length === 0) continue
+
+    // Fetch isAllTime flag for eligible achievements
+    const eligibleIdList = eligibleIds
+    const achievementFlags = await db.sql<{ id: number; isAllTime: boolean }>`
+      SELECT id, "isAllTime" FROM public."Achievements" WHERE id = ANY(${eligibleIdList}::int[])
+    `
+    const allTimeSet = new Set(achievementFlags.filter((a) => a.isAllTime).map((a) => Number(a.id)))
+
     for (const achievementId of eligibleIds) {
-      await db.sql`
-        INSERT INTO public."PlayerAchievements" ("playerId", "achievementId", "roomId", "earnedAt", "createdAt", "updatedAt")
-        VALUES (${assignment.playerId}, ${achievementId}, ${roomId}, ${earnedAt}, NOW(), NOW())
-        ON CONFLICT ("playerId", "achievementId") DO UPDATE
-          SET "earnedAt" = LEAST("PlayerAchievements"."earnedAt", EXCLUDED."earnedAt"),
-              "updatedAt" = NOW()
-      `
+      if (allTimeSet.has(achievementId)) {
+        // All-time: insert with seasonId = NULL
+        await db.sql`
+          INSERT INTO public."PlayerAchievements" ("playerId", "achievementId", "roomId", "seasonId", "earnedAt", "createdAt", "updatedAt")
+          VALUES (${assignment.playerId}, ${achievementId}, ${roomId}, NULL, ${earnedAt}, NOW(), NOW())
+          ON CONFLICT ("playerId", "achievementId") WHERE "seasonId" IS NULL
+          DO UPDATE SET "earnedAt" = LEAST("PlayerAchievements"."earnedAt", EXCLUDED."earnedAt"), "updatedAt" = NOW()
+        `
+      } else if (seasonId !== null) {
+        // Seasonal: insert with seasonId (only if within a season)
+        await db.sql`
+          INSERT INTO public."PlayerAchievements" ("playerId", "achievementId", "roomId", "seasonId", "earnedAt", "createdAt", "updatedAt")
+          VALUES (${assignment.playerId}, ${achievementId}, ${roomId}, ${seasonId}, ${earnedAt}, NOW(), NOW())
+          ON CONFLICT ("playerId", "achievementId", "seasonId") WHERE "seasonId" IS NOT NULL
+          DO UPDATE SET "earnedAt" = LEAST("PlayerAchievements"."earnedAt", EXCLUDED."earnedAt"), "updatedAt" = NOW()
+        `
+      }
+      // If seasonal but no season found, skip (can't scope to a season)
     }
   }
 }
@@ -2056,6 +2133,8 @@ async function getEligibleAchievementIds({
   team,
   teamA_score,
   teamB_score,
+  seasonStart,
+  seasonEnd,
 }: {
   playerId: number
   roomId: number
@@ -2064,26 +2143,37 @@ async function getEligibleAchievementIds({
   team: string
   teamA_score: number
   teamB_score: number
+  seasonStart?: string
+  seasonEnd?: string
 }) {
+  // Full history for all-time checks
   const recent = await getPlayerResultHistory(playerId, roomId, 100, gameweekId, gameweekDate)
+  // Season-scoped history for seasonal checks (falls back to full history if no season bounds)
+  const seasonHistory = seasonStart && seasonEnd
+    ? await getPlayerResultHistory(playerId, roomId, 100, gameweekId, gameweekDate, seasonStart, seasonEnd)
+    : recent
+
   const currentWin = didTeamWin(team, teamA_score, teamB_score)
   const currentLoss = didTeamLose(team, teamA_score, teamB_score)
   const teamGoals = team === 'A' ? teamA_score : teamB_score
   const conceded = team === 'A' ? teamB_score : teamA_score
   const ids: number[] = []
 
-  if (recent.slice(0, 3).length >= 3 && recent.slice(0, 3).every((row) => row.outcome === 'W')) ids.push(1)
-  if (recent.filter((row) => row.outcome === 'D').length >= 5) ids.push(2)
-  if (recent.length >= 10) ids.push(3)
-  if (recent.slice(0, 5).length >= 5 && recent.slice(0, 5).every((row) => row.outcome !== 'L')) ids.push(4)
+  // Seasonal achievements — use seasonHistory
+  if (seasonHistory.slice(0, 3).length >= 3 && seasonHistory.slice(0, 3).every((row) => row.outcome === 'W')) ids.push(1)
+  if (seasonHistory.filter((row) => row.outcome === 'D').length >= 5) ids.push(2)
+  if (seasonHistory.length >= 10) ids.push(3)
+  if (seasonHistory.slice(0, 5).length >= 5 && seasonHistory.slice(0, 5).every((row) => row.outcome !== 'L')) ids.push(4)
   if (await hasLongTimeTeammate(playerId, roomId, gameweekId)) ids.push(5)
+  // All-time achievements — use full recent history
   if (recent.length >= 50) ids.push(8)
   if (recent.length >= 100) ids.push(9)
-  if (recent.filter((row) => row.outcome === 'W').length >= 10) ids.push(10)
+  // Seasonal achievements continued
+  if (seasonHistory.filter((row) => row.outcome === 'W').length >= 10) ids.push(10)
   if (currentWin && Math.abs(teamA_score - teamB_score) >= 5) ids.push(11)
-  if (recent.filter((row) => row.outcome === 'L').length >= 5) ids.push(12)
+  if (seasonHistory.filter((row) => row.outcome === 'L').length >= 5) ids.push(12)
   if (currentLoss && Math.abs(teamA_score - teamB_score) === 1) ids.push(13)
-  if (currentWin && recent[1]?.outcome === 'L') ids.push(14)
+  if (currentWin && seasonHistory[1]?.outcome === 'L') ids.push(14)
   if (teamGoals >= 10) ids.push(15)
   if (conceded === 0) ids.push(16)
   if (teamA_score >= 5 && teamB_score >= 5) ids.push(17)
@@ -2091,9 +2181,41 @@ async function getEligibleAchievementIds({
   return ids
 }
 
-async function getPlayerResultHistory(playerId: number, roomId: number, limit: number, maxGameweekId?: number, maxGameweekDate?: string) {
+async function getPlayerResultHistory(
+  playerId: number,
+  roomId: number,
+  limit: number,
+  maxGameweekId?: number,
+  maxGameweekDate?: string,
+  seasonStart?: string,
+  seasonEnd?: string,
+) {
   const ceilingId = maxGameweekId ?? 2147483647
   const ceilingDate = maxGameweekDate ?? '9999-12-31'
+  if (seasonStart && seasonEnd) {
+    return db.sql<{ gameweekId: number; team: string; outcome: 'W' | 'D' | 'L' }>`
+      SELECT gw.id AS "gameweekId", ta.team,
+             CASE
+               WHEN gr."teamA_score" = gr."teamB_score" THEN 'D'
+               WHEN (ta.team = 'A' AND gr."teamA_score" > gr."teamB_score")
+                 OR (ta.team = 'B' AND gr."teamB_score" > gr."teamA_score") THEN 'W'
+               ELSE 'L'
+             END AS outcome
+      FROM public."TeamAssignments" ta
+      JOIN public."GameResults" gr
+        ON gr."gameweekId" = ta."gameweekId" AND gr."roomId" = ta."roomId"
+      JOIN public."Gameweeks" gw
+        ON gw.id = ta."gameweekId" AND gw."roomId" = ta."roomId"
+      WHERE ta."roomId" = ${roomId}
+        AND ta."playerId" = ${playerId}
+        AND ta.team IN ('A', 'B')
+        AND (gw.date < ${ceilingDate} OR (gw.date = ${ceilingDate} AND gw.id <= ${ceilingId}))
+        AND gw.date >= ${seasonStart}::date
+        AND gw.date <= ${seasonEnd}::date
+      ORDER BY gw.date DESC, gw.id DESC
+      LIMIT ${limit}
+    `
+  }
   return db.sql<{ gameweekId: number; team: string; outcome: 'W' | 'D' | 'L' }>`
     SELECT gw.id AS "gameweekId", ta.team,
            CASE

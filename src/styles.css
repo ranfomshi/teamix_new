@@ -2191,6 +2191,18 @@ button {
   font-weight: 700;
 }
 
+.ach-season-label {
+  font-size: 0.7rem !important;
+  color: var(--muted) !important;
+  font-weight: 600;
+}
+
+.achievement-season {
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-left: 2px;
+}
+
 .combos-section {
   margin-top: 14px;
   display: flex;

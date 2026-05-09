@@ -220,14 +220,18 @@ type AchievementEntry = {
   title: string
   description: string
   earnedAt: string
+  seasonName?: string | null
 }
 
 type FullAchievement = {
-  id: number
+  achievementId: number
   title: string
   description: string
+  isAllTime: boolean
   isCompleted: boolean
   earnedAt: string | null
+  seasonId: number | null
+  seasonName: string | null
 }
 
 type AppNotification =
@@ -3169,8 +3173,9 @@ function AchievementsView() {
         }
         const data = await apiFetch<FullAchievement[]>('/api/player-achievements', getAccessTokenSilently)
         setAchievements(data)
-        const earned = data.filter((a) => a.isCompleted).length
-        track('Achievements Viewed', { earned_count: earned, total_count: data.length, completion_pct: data.length ? Math.round((earned / data.length) * 100) : 0 })
+        const earnedIds = new Set(data.filter((a) => a.isCompleted).map((a) => a.achievementId))
+        const totalIds = new Set(data.map((a) => a.achievementId))
+        track('Achievements Viewed', { earned_count: earnedIds.size, total_count: totalIds.size, completion_pct: totalIds.size ? Math.round((earnedIds.size / totalIds.size) * 100) : 0 })
       } catch (e) {
         setFetchError(e instanceof Error ? e.message : 'Could not load achievements')
       }
@@ -3178,9 +3183,30 @@ function AchievementsView() {
     load()
   }, [getAccessTokenSilently])
 
-  const earned = achievements?.filter((a) => a.isCompleted) ?? []
-  const locked = achievements?.filter((a) => !a.isCompleted) ?? []
-  const total = achievements?.length ?? 0
+  // Unique achievement IDs (for progress bar — count distinct achievements, not seasonal instances)
+  const uniqueAchievementIds = achievements ? [...new Set(achievements.map((a) => a.achievementId))] : []
+  const uniqueTotal = uniqueAchievementIds.length
+  const uniqueEarnedIds = achievements ? [...new Set(achievements.filter((a) => a.isCompleted).map((a) => a.achievementId))] : []
+  const uniqueEarnedCount = uniqueEarnedIds.length
+
+  // All-time earned achievements (one row per achievement — no season duplication)
+  const allTimeEarned = achievements?.filter((a) => a.isCompleted && a.isAllTime) ?? []
+
+  // Seasonal earned achievements — group by seasonName
+  const seasonalEarned = achievements?.filter((a) => a.isCompleted && !a.isAllTime) ?? []
+  const seasonGroups: Map<string, FullAchievement[]> = new Map()
+  for (const a of seasonalEarned) {
+    const key = a.seasonName ?? 'No Season'
+    if (!seasonGroups.has(key)) seasonGroups.set(key, [])
+    seasonGroups.get(key)!.push(a)
+  }
+
+  const locked = achievements
+    ? achievements.filter((a) => !a.isCompleted).reduce<FullAchievement[]>((acc, a) => {
+        if (!acc.some((x) => x.achievementId === a.achievementId)) acc.push(a)
+        return acc
+      }, [])
+    : []
 
   return (
     <section className="screen">
@@ -3191,35 +3217,44 @@ function AchievementsView() {
         <>
           <div className="ach-progress-bar-wrap">
             <div className="ach-progress-label">
-              <span>{earned.length} of {total} earned</span>
-              <span>{total > 0 ? Math.round((earned.length / total) * 100) : 0}%</span>
+              <span>{uniqueEarnedCount} of {uniqueTotal} earned</span>
+              <span>{uniqueTotal > 0 ? Math.round((uniqueEarnedCount / uniqueTotal) * 100) : 0}%</span>
             </div>
             <div className="ach-progress-track">
-              <div className="ach-progress-fill" style={{ width: `${total > 0 ? (earned.length / total) * 100 : 0}%` }} />
+              <div className="ach-progress-fill" style={{ width: `${uniqueTotal > 0 ? (uniqueEarnedCount / uniqueTotal) * 100 : 0}%` }} />
             </div>
           </div>
 
-          {earned.length === 0 ? (
+          {uniqueEarnedCount === 0 ? (
             <div className="empty-panel">
               <Trophy size={32} strokeWidth={1.2} />
               <p>No trophies yet — play some games and the wins will come.</p>
             </div>
           ) : null}
 
-          {earned.length > 0 ? (
+          {allTimeEarned.length > 0 ? (
             <div className="ach-group">
-              <h2 className="ach-group-label">Earned</h2>
+              <h2 className="ach-group-label">All-time</h2>
               <div className="ach-list">
-                {earned.map((a) => <AchievementCard key={a.id} achievement={a} />)}
+                {allTimeEarned.map((a) => <AchievementCard key={`alltime-${a.achievementId}`} achievement={a} />)}
               </div>
             </div>
           ) : null}
+
+          {[...seasonGroups.entries()].map(([seasonName, items]) => (
+            <div key={seasonName} className="ach-group">
+              <h2 className="ach-group-label">{seasonName}</h2>
+              <div className="ach-list">
+                {items.map((a) => <AchievementCard key={`${a.achievementId}-${a.seasonId}`} achievement={a} />)}
+              </div>
+            </div>
+          ))}
 
           {locked.length > 0 ? (
             <div className="ach-group">
               <h2 className="ach-group-label locked">Locked</h2>
               <div className="ach-list">
-                {locked.map((a) => <AchievementCard key={a.id} achievement={a} />)}
+                {locked.map((a) => <AchievementCard key={`locked-${a.achievementId}`} achievement={a} />)}
               </div>
             </div>
           ) : null}
@@ -3244,6 +3279,9 @@ function AchievementCard({ achievement }: { achievement: FullAchievement }) {
         <strong>{achievement.title}</strong>
         <span>{achievement.description}</span>
         {date ? <span className="ach-date">Earned {date}</span> : null}
+        {earned && !achievement.isAllTime && achievement.seasonName ? (
+          <span className="ach-season-label">{achievement.seasonName}</span>
+        ) : null}
       </div>
     </div>
   )
@@ -3426,10 +3464,11 @@ function PlayerRow({
             <div className="achievements-shelf">
               <h4 className="achievements-shelf-title">Achievements</h4>
               <div className="achievements-list">
-                {achievements.map((a) => (
-                  <div key={a.id} className="achievement-chip" title={a.description}>
+                {achievements.map((a, i) => (
+                  <div key={`${a.id}-${i}`} className="achievement-chip" title={a.description}>
                     <Trophy size={11} />
                     <span>{a.title}</span>
+                    {a.seasonName ? <span className="achievement-season">{a.seasonName}</span> : null}
                   </div>
                 ))}
               </div>
