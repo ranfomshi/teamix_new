@@ -939,6 +939,104 @@ button {
   background: var(--danger);
 }
 
+/* Form history (all games, expanded view) */
+.form-history-section {
+  margin-top: 10px;
+}
+
+.form-history-title {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.form-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 6px;
+}
+
+.form-history i {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+.form-history .wins {
+  background: var(--grass);
+}
+
+.form-history .draws {
+  background: var(--gold);
+}
+
+.form-history .losses {
+  background: var(--danger);
+}
+
+/* Rating trend */
+.rating-trend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.rating-trend-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.rating-trend-pill {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* Season breakdown table */
+.season-stats-section {
+  margin-top: 10px;
+}
+
+.season-stats-title {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.season-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.season-stats-table td {
+  padding: 3px 0;
+  vertical-align: middle;
+}
+
+.season-stats-name {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.season-stats-record {
+  text-align: right;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .rating-pill {
   display: inline-flex;
   align-items: center;

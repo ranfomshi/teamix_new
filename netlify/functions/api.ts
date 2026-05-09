@@ -62,6 +62,16 @@ const tablesReady = (async () => {
   } catch (e) {
     console.error('[teamix] Seasons table init failed:', e)
   }
+  try {
+    await db.sql`ALTER TABLE public."GameResults" ADD COLUMN IF NOT EXISTS "teamA_chemistry" FLOAT`
+  } catch (e) {
+    console.error('[teamix] GameResults teamA_chemistry column init failed:', e)
+  }
+  try {
+    await db.sql`ALTER TABLE public."GameResults" ADD COLUMN IF NOT EXISTS "teamB_chemistry" FLOAT`
+  } catch (e) {
+    console.error('[teamix] GameResults teamB_chemistry column init failed:', e)
+  }
 })()
 
 export const handler: Handler = async (event) => {
@@ -536,7 +546,8 @@ export const handler: Handler = async (event) => {
           COALESCE(s.losses, 0)::int AS losses,
           COALESCE(s."goalsFor", 0)::int     AS "goalsFor",
           COALESCE(s."goalsAgainst", 0)::int AS "goalsAgainst",
-          COALESCE(f."recentForm", '[]'::json) AS "recentForm"
+          COALESCE(f."recentForm", '[]'::json) AS "recentForm",
+          COALESCE(ff."fullForm", '[]'::json) AS "fullForm"
         FROM public."RoomMemberships" rm
         JOIN public."Players" p ON p.id = rm."playerId"
         LEFT JOIN (
@@ -597,6 +608,27 @@ export const handler: Handler = async (event) => {
             ) recent
           ) form_row
         ) f ON true
+        LEFT JOIN LATERAL (
+          SELECT json_agg(
+            CASE
+              WHEN gr."teamA_score" = gr."teamB_score" THEN 'D'
+              WHEN (ta.team = 'A' AND gr."teamA_score" > gr."teamB_score")
+                OR (ta.team = 'B' AND gr."teamB_score" > gr."teamA_score") THEN 'W'
+              ELSE 'L'
+            END
+            ORDER BY gw.date ASC, gw.id ASC
+          ) AS "fullForm"
+          FROM public."TeamAssignments" ta
+          JOIN public."GameResults" gr
+            ON gr."gameweekId" = ta."gameweekId" AND gr."roomId" = ta."roomId"
+          JOIN public."Gameweeks" gw
+            ON gw.id = ta."gameweekId" AND gw."roomId" = ta."roomId"
+          WHERE ta."roomId" = ${active.roomId}
+            AND ta."playerId" = p.id
+            AND ta.team IN ('A', 'B')
+            AND gw.date >= ${seasonStart}::date
+            AND gw.date <= ${seasonEnd}::date
+        ) ff ON true
         WHERE rm."roomId" = ${active.roomId}
           AND rm."isMember" = true
         ORDER BY COALESCE(s.wins, 0) DESC, p.rating DESC NULLS LAST, p.name ASC
@@ -630,40 +662,9 @@ export const handler: Handler = async (event) => {
     if (route === '/team-chemistry' && method === 'POST') {
       const { teamAIds, teamBIds } = parseBody<{ teamAIds: number[]; teamBIds: number[] }>(event)
 
-      async function calcChemistry(playerIds: number[]): Promise<number | null> {
-        if (playerIds.length < 2) return null
-        const idList = playerIds.join(',')
-        const [row] = await db.sql<{ chemistry: number | null }>`
-          SELECT AVG(wins::float / NULLIF(games, 0)) AS chemistry
-          FROM (
-            SELECT
-              COUNT(*)::int AS games,
-              COUNT(*) FILTER (
-                WHERE (ta1.team = 'A' AND gr."teamA_score" > gr."teamB_score")
-                   OR (ta1.team = 'B' AND gr."teamB_score" > gr."teamA_score")
-              )::int AS wins
-            FROM public."TeamAssignments" ta1
-            JOIN public."TeamAssignments" ta2
-              ON ta2."gameweekId" = ta1."gameweekId"
-             AND ta2."roomId" = ta1."roomId"
-             AND ta2.team = ta1.team
-             AND ta2."playerId" > ta1."playerId"
-            JOIN public."GameResults" gr
-              ON gr."gameweekId" = ta1."gameweekId"
-             AND gr."roomId" = ta1."roomId"
-            WHERE ta1."playerId" = ANY(string_to_array(${idList}, ',')::integer[])
-              AND ta2."playerId" = ANY(string_to_array(${idList}, ',')::integer[])
-              AND ta1."roomId" = ${active.roomId}
-            GROUP BY ta1."playerId", ta2."playerId"
-            HAVING COUNT(*) >= 1
-          ) pairs
-        `
-        return row?.chemistry ?? null
-      }
-
       const [teamA, teamB] = await Promise.all([
-        calcChemistry(teamAIds),
-        calcChemistry(teamBIds),
+        calcChemistry(teamAIds, active.roomId),
+        calcChemistry(teamBIds, active.roomId),
       ])
       return json({ teamA, teamB })
     }
@@ -672,6 +673,8 @@ export const handler: Handler = async (event) => {
     const playerLinkMatch = route.match(/^\/players\/(\d+)\/link$/)
     const playerCombosMatch = route.match(/^\/players\/(\d+)\/combos$/)
     const playerAchievementsMatch = route.match(/^\/players\/(\d+)\/achievements$/)
+    const playerRatingHistoryMatch = route.match(/^\/players\/(\d+)\/rating-history$/)
+    const playerSeasonStatsMatch = route.match(/^\/players\/(\d+)\/season-stats$/)
     if (playerCombosMatch && method === 'GET') {
       const playerId = Number(playerCombosMatch[1])
       const allies = await db.sql<{
@@ -771,6 +774,44 @@ export const handler: Handler = async (event) => {
         ORDER BY pa."earnedAt" DESC
       `
       return json(achievements)
+    }
+
+    if (playerRatingHistoryMatch && method === 'GET') {
+      const playerId = Number(playerRatingHistoryMatch[1])
+      const history = await db.sql<{ date: string; rating: number }>`
+        SELECT date::text AS date, rating::float AS rating
+        FROM public."Ratings"
+        WHERE "playerId" = ${playerId}
+          AND "roomId" = ${active.roomId}
+        ORDER BY date ASC, id ASC
+        LIMIT 20
+      `
+      return json(history)
+    }
+
+    if (playerSeasonStatsMatch && method === 'GET') {
+      const playerId = Number(playerSeasonStatsMatch[1])
+      const seasonStats = await db.sql<{
+        seasonId: number; seasonName: string; played: number
+        wins: number; draws: number; losses: number
+      }>`
+        SELECT
+          s.id AS "seasonId",
+          s.name AS "seasonName",
+          COUNT(gr.id)::int AS played,
+          COUNT(*) FILTER (WHERE (ta.team='A' AND gr."teamA_score">gr."teamB_score") OR (ta.team='B' AND gr."teamB_score">gr."teamA_score"))::int AS wins,
+          COUNT(*) FILTER (WHERE gr."teamA_score"=gr."teamB_score")::int AS draws,
+          COUNT(*) FILTER (WHERE (ta.team='A' AND gr."teamA_score"<gr."teamB_score") OR (ta.team='B' AND gr."teamB_score"<gr."teamA_score"))::int AS losses
+        FROM public."Seasons" s
+        JOIN public."Gameweeks" gw ON gw."roomId" = s."roomId" AND gw.date >= s."startDate" AND (s."endDate" IS NULL OR gw.date <= s."endDate")
+        JOIN public."TeamAssignments" ta ON ta."gameweekId" = gw.id AND ta."roomId" = s."roomId" AND ta."playerId" = ${playerId}
+        JOIN public."GameResults" gr ON gr."gameweekId" = gw.id AND gr."roomId" = s."roomId"
+        WHERE s."roomId" = ${active.roomId}
+        GROUP BY s.id, s.name, s."startDate"
+        HAVING COUNT(gr.id) > 0
+        ORDER BY s."startDate" DESC
+      `
+      return json(seasonStats)
     }
 
     if (playerLinkMatch && method === 'PUT') {
@@ -881,6 +922,7 @@ export const handler: Handler = async (event) => {
       const gameweeks = await db.sql`
         SELECT gw.id, gw.date, gw.location, gw."startTime", gw."maxPlayers",
                gr."teamA_score", gr."teamB_score", gr."createdAt" AS "resultCreatedAt",
+               gr."teamA_chemistry", gr."teamB_chemistry",
                COALESCE(potm."playerOfTheMatch", '[]'::json) AS "playerOfTheMatch",
                (SELECT COUNT(*)::int FROM public."Availabilities" a
                 WHERE a."gameweekId" = gw.id AND a."roomId" = gw."roomId" AND a.status = true) AS "availableCount"
@@ -925,6 +967,7 @@ export const handler: Handler = async (event) => {
       const [gameweek] = await db.sql`
         SELECT gw.id, gw.date, gw.location, gw."startTime", gw."maxPlayers",
                gr."teamA_score", gr."teamB_score", gr."createdAt" AS "resultCreatedAt",
+               gr."teamA_chemistry", gr."teamB_chemistry",
                COALESCE(potm."playerOfTheMatch", '[]'::json) AS "playerOfTheMatch"
         FROM public."Gameweeks" gw
         LEFT JOIN public."GameResults" gr
@@ -1103,6 +1146,7 @@ export const handler: Handler = async (event) => {
             AND "roomId" = ${active.roomId}
         `
         await recalculateIfResultExists(body.gameweekId, active.roomId)
+        snapshotChemistry(body.gameweekId, active.roomId).catch((e) => console.error('[chemistry snapshot]', e))
         return json({ success: true, playerId: body.playerId, team: null })
       }
 
@@ -1114,6 +1158,7 @@ export const handler: Handler = async (event) => {
         RETURNING id, team, "playerId", "gameweekId", "roomId"
       `
       await recalculateIfResultExists(body.gameweekId, active.roomId)
+      snapshotChemistry(body.gameweekId, active.roomId).catch((e) => console.error('[chemistry snapshot]', e))
       return json({ success: true, assignment })
     }
 
@@ -1174,6 +1219,7 @@ export const handler: Handler = async (event) => {
       } catch (e) {
         console.error('[teamix] updatePlayerRatings failed for gameweek', body.gameweekId, e)
       }
+      snapshotChemistry(body.gameweekId, active.roomId).catch((e) => console.error('[chemistry snapshot]', e))
       await awardAchievementsForGameweek(body.gameweekId, active.roomId, body.teamA_score, body.teamB_score)
       return json(result)
     }
@@ -1803,6 +1849,59 @@ async function buildPairSynergyMap({
   return pairSynergyMap
 }
 
+async function calcChemistry(playerIds: number[], roomId: number): Promise<number | null> {
+  if (playerIds.length < 2) return null
+  const idList = playerIds.join(',')
+  const [row] = await db.sql<{ chemistry: number | null }>`
+    SELECT AVG(wins::float / NULLIF(games, 0)) AS chemistry
+    FROM (
+      SELECT
+        COUNT(*)::int AS games,
+        COUNT(*) FILTER (
+          WHERE (ta1.team = 'A' AND gr."teamA_score" > gr."teamB_score")
+             OR (ta1.team = 'B' AND gr."teamB_score" > gr."teamA_score")
+        )::int AS wins
+      FROM public."TeamAssignments" ta1
+      JOIN public."TeamAssignments" ta2
+        ON ta2."gameweekId" = ta1."gameweekId"
+       AND ta2."roomId" = ta1."roomId"
+       AND ta2.team = ta1.team
+       AND ta2."playerId" > ta1."playerId"
+      JOIN public."GameResults" gr
+        ON gr."gameweekId" = ta1."gameweekId"
+       AND gr."roomId" = ta1."roomId"
+      WHERE ta1."playerId" = ANY(string_to_array(${idList}, ',')::integer[])
+        AND ta2."playerId" = ANY(string_to_array(${idList}, ',')::integer[])
+        AND ta1."roomId" = ${roomId}
+      GROUP BY ta1."playerId", ta2."playerId"
+      HAVING COUNT(*) >= 1
+    ) pairs
+  `
+  return row?.chemistry ?? null
+}
+
+async function snapshotChemistry(gameweekId: number, roomId: number): Promise<void> {
+  const assignments = await db.sql<{ playerId: number; team: string }>`
+    SELECT "playerId", team
+    FROM public."TeamAssignments"
+    WHERE "gameweekId" = ${gameweekId}
+      AND "roomId" = ${roomId}
+  `
+  const teamAIds = assignments.filter((a) => a.team === 'A').map((a) => a.playerId)
+  const teamBIds = assignments.filter((a) => a.team === 'B').map((a) => a.playerId)
+  const [teamAChemistry, teamBChemistry] = await Promise.all([
+    calcChemistry(teamAIds, roomId),
+    calcChemistry(teamBIds, roomId),
+  ])
+  await db.sql`
+    UPDATE public."GameResults"
+    SET "teamA_chemistry" = ${teamAChemistry},
+        "teamB_chemistry" = ${teamBChemistry}
+    WHERE "gameweekId" = ${gameweekId}
+      AND "roomId" = ${roomId}
+  `
+}
+
 async function recalculateIfResultExists(gameweekId: number, roomId: number) {
   const [existingResult] = await db.sql<{
     teamA_score: number; teamB_score: number; date: string
@@ -2075,6 +2174,8 @@ function formatGameweek(gameweek: Record<string, unknown>) {
   const teamAScore = gameweek.teamA_score
   const teamBScore = gameweek.teamB_score
   const resultCreatedAt = gameweek.resultCreatedAt
+  const teamAChemistry = gameweek.teamA_chemistry as number | null | undefined
+  const teamBChemistry = gameweek.teamB_chemistry as number | null | undefined
   return {
     id: gameweek.id,
     date: gameweek.date,
@@ -2089,6 +2190,8 @@ function formatGameweek(gameweek: Record<string, unknown>) {
             teamA_score: teamAScore,
             teamB_score: teamBScore,
             createdAt: resultCreatedAt,
+            teamAChemistry: teamAChemistry ?? null,
+            teamBChemistry: teamBChemistry ?? null,
           },
     votingCloseTime: resultCreatedAt
       ? new Date(new Date(String(resultCreatedAt)).getTime() + 48 * 60 * 60 * 1000).toISOString()

@@ -60,6 +60,21 @@ type Player = {
   goalsFor?: number
   goalsAgainst?: number
   recentForm?: Array<'W' | 'D' | 'L'>
+  fullForm?: Array<'W' | 'D' | 'L'>
+}
+
+type RatingSnapshot = {
+  date: string
+  rating: number
+}
+
+type SeasonStat = {
+  seasonId: number
+  seasonName: string
+  played: number
+  wins: number
+  draws: number
+  losses: number
 }
 
 type Gameweek = {
@@ -73,6 +88,8 @@ type Gameweek = {
     teamA_score: number
     teamB_score: number
     createdAt?: string
+    teamAChemistry?: number | null
+    teamBChemistry?: number | null
   } | null
   votingCloseTime?: string | null
   playerOfTheMatch?: Array<{ id: number; name: string; votes: number }>
@@ -271,9 +288,7 @@ function AppFrame() {
     return <Welcome onLogin={handleLogin} />
   }
 
-  return (
-    <AuthenticatedShell key={location.pathname} />
-  )
+  return <AuthenticatedShell />
 }
 
 function AuthenticatedShell() {
@@ -1674,6 +1689,16 @@ function FixtureCard({
   }, [detail.availability])
 
   useEffect(() => {
+    // If result exists with stored chemistry, use it (immutable historical record)
+    if (fixture.gameResult &&
+        (fixture.gameResult.teamAChemistry !== undefined || fixture.gameResult.teamBChemistry !== undefined)) {
+      setChemistry({
+        teamA: fixture.gameResult.teamAChemistry ?? null,
+        teamB: fixture.gameResult.teamBChemistry ?? null,
+      })
+      return
+    }
+    // No result yet OR old result without stored chemistry — calculate live
     if (!detail.assignments || chemistry !== null) return
     const teamAIds = detail.assignments.filter((a) => a.team === 'A').map((a) => a.Player.id)
     const teamBIds = detail.assignments.filter((a) => a.team === 'B').map((a) => a.Player.id)
@@ -1681,7 +1706,7 @@ function FixtureCard({
     apiSend<TeamChemistry>('/api/team-chemistry', getAccessTokenSilently, { teamAIds, teamBIds })
       .then((data) => setChemistry(data ?? { teamA: null, teamB: null }))
       .catch((err) => { console.error('[chemistry]', err); setChemistry({ teamA: null, teamB: null }) })
-  }, [detail.assignments, chemistry, getAccessTokenSilently])
+  }, [fixture.gameResult, detail.assignments, chemistry, getAccessTokenSilently])
 
   async function assignPlayer(playerId: number, team: 'A' | 'B' | 'bench') {
     setError(null)
@@ -3272,6 +3297,8 @@ function PlayerRow({
   const [expanded, setExpanded] = useState(false)
   const [combos, setCombos] = useState<PlayerCombos | null>(null)
   const [achievements, setAchievements] = useState<AchievementEntry[] | null>(null)
+  const [ratingHistory, setRatingHistory] = useState<RatingSnapshot[] | null>(null)
+  const [seasonStats, setSeasonStats] = useState<SeasonStat[] | null>(null)
   const [combosLoading, setCombosLoading] = useState(false)
   const wins = player.wins ?? 0
   const draws = player.draws ?? 0
@@ -3287,9 +3314,21 @@ function PlayerRow({
     Promise.all([
       apiFetch<PlayerCombos>(`/api/players/${player.id}/combos`, getAccessTokenSilently),
       apiFetch<AchievementEntry[]>(`/api/players/${player.id}/achievements`, getAccessTokenSilently),
+      apiFetch<RatingSnapshot[]>(`/api/players/${player.id}/rating-history`, getAccessTokenSilently),
+      apiFetch<SeasonStat[]>(`/api/players/${player.id}/season-stats`, getAccessTokenSilently),
     ])
-      .then(([comboData, achData]) => { setCombos(comboData); setAchievements(achData) })
-      .catch(() => { setCombos({ allies: [], opponents: [] }); setAchievements([]) })
+      .then(([comboData, achData, ratingData, seasonData]) => {
+        setCombos(comboData)
+        setAchievements(achData)
+        setRatingHistory(ratingData)
+        setSeasonStats(seasonData)
+      })
+      .catch(() => {
+        setCombos({ allies: [], opponents: [] })
+        setAchievements([])
+        setRatingHistory([])
+        setSeasonStats([])
+      })
       .finally(() => setCombosLoading(false))
   }, [expanded, combos, combosLoading, player.id, getAccessTokenSilently])
 
@@ -3352,6 +3391,36 @@ function PlayerRow({
             <div><span>Goals/game</span><strong>{played > 0 ? (gf / played).toFixed(1) : '—'}</strong></div>
             <div><span>Rating</span><strong>{Math.round(Number(player.rating))}</strong></div>
           </div>
+          {player.fullForm && player.fullForm.length >= 6 ? (
+            <div className="form-history-section">
+              <h4 className="form-history-title">Form history</h4>
+              <div className="form-history" aria-hidden="true">
+                {player.fullForm.map((result, index) => (
+                  <i
+                    key={`${player.id}-ff-${index}`}
+                    className={result === 'W' ? 'wins' : result === 'D' ? 'draws' : 'losses'}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {ratingHistory && ratingHistory.length >= 4 ? (() => {
+            const last8 = ratingHistory.slice(-8)
+            const half = Math.floor(last8.length / 2)
+            const firstHalf = last8.slice(0, half)
+            const secondHalf = last8.slice(half)
+            const avg = (arr: RatingSnapshot[]) => arr.reduce((s, r) => s + r.rating, 0) / arr.length
+            const diff = avg(secondHalf) - avg(firstHalf)
+            const trend = diff > 2 ? { label: 'Improving ↑', color: 'var(--grass)' }
+              : diff < -2 ? { label: 'Declining ↓', color: 'var(--danger)' }
+              : { label: 'Stable →', color: 'var(--muted)' }
+            return (
+              <div className="rating-trend-row">
+                <span className="rating-trend-label">Rating trend</span>
+                <span className="rating-trend-pill" style={{ color: trend.color }}>{trend.label}</span>
+              </div>
+            )
+          })() : null}
           {achievements && achievements.length > 0 ? (
             <div className="achievements-shelf">
               <h4 className="achievements-shelf-title">Achievements</h4>
@@ -3363,6 +3432,21 @@ function PlayerRow({
                   </div>
                 ))}
               </div>
+            </div>
+          ) : null}
+          {seasonStats && seasonStats.length >= 2 ? (
+            <div className="season-stats-section">
+              <h4 className="season-stats-title">Season breakdown</h4>
+              <table className="season-stats-table">
+                <tbody>
+                  {seasonStats.map((s) => (
+                    <tr key={s.seasonId}>
+                      <td className="season-stats-name">{s.seasonName}</td>
+                      <td className="season-stats-record">{s.wins}W · {s.draws}D · {s.losses}L</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : null}
           {combosLoading ? (
