@@ -1689,16 +1689,16 @@ function FixtureCard({
   }, [detail.availability])
 
   useEffect(() => {
-    // If result exists with stored chemistry, use it (immutable historical record)
+    // Use stored chemistry if at least one team has a non-null value (post-deploy fixtures)
     if (fixture.gameResult &&
-        (fixture.gameResult.teamAChemistry !== undefined || fixture.gameResult.teamBChemistry !== undefined)) {
+        (fixture.gameResult.teamAChemistry != null || fixture.gameResult.teamBChemistry != null)) {
       setChemistry({
         teamA: fixture.gameResult.teamAChemistry ?? null,
         teamB: fixture.gameResult.teamBChemistry ?? null,
       })
       return
     }
-    // No result yet OR old result without stored chemistry — calculate live
+    // Old fixture (columns null) or no result yet — calculate live
     if (!detail.assignments || chemistry !== null) return
     const teamAIds = detail.assignments.filter((a) => a.team === 'A').map((a) => a.Player.id)
     const teamBIds = detail.assignments.filter((a) => a.team === 'B').map((a) => a.Player.id)
