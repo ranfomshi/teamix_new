@@ -517,6 +517,86 @@ export const handler: Handler = async (event) => {
       return membership ? json({ favoritePositions: membership.favoritePositions }) : json({ error: 'Membership not found' }, 404)
     }
 
+    const seasonSummaryMatch = route.match(/^\/seasons\/(\d+)\/summary$/)
+    if (method === 'GET' && seasonSummaryMatch) {
+      const seasonId = Number(seasonSummaryMatch[1])
+      const [seasonRow] = await db.sql`
+        SELECT id, "startDate"::text AS "startDate", "endDate"::text AS "endDate"
+        FROM public."Seasons"
+        WHERE id = ${seasonId} AND "roomId" = ${active.roomId}
+      `
+      if (!seasonRow) return json({ error: 'Season not found' }, 404)
+      const startDate = seasonRow.startDate as string
+      const endDate = (seasonRow.endDate ?? new Date().toISOString().slice(0, 10)) as string
+
+      const [totalGamesRow] = await db.sql`
+        SELECT COUNT(DISTINCT gr."gameweekId")::int AS "totalGames"
+        FROM public."GameResults" gr
+        JOIN public."Gameweeks" gw ON gw.id = gr."gameweekId" AND gw."roomId" = gr."roomId"
+        WHERE gr."roomId" = ${active.roomId}
+          AND gw.date >= ${startDate}::date AND gw.date <= ${endDate}::date
+      `
+      const totalGames: number = (totalGamesRow as { totalGames: number })?.totalGames ?? 0
+
+      const [topPlayerRow] = await db.sql`
+        SELECT p.name, ta."playerId" AS id,
+          COUNT(*) FILTER (WHERE (ta.team='A' AND gr."teamA_score">gr."teamB_score") OR (ta.team='B' AND gr."teamB_score">gr."teamA_score"))::int AS wins,
+          COUNT(*)::int AS played
+        FROM public."TeamAssignments" ta
+        JOIN public."GameResults" gr ON gr."gameweekId" = ta."gameweekId" AND gr."roomId" = ta."roomId"
+        JOIN public."Gameweeks" gw ON gw.id = ta."gameweekId" AND gw."roomId" = ta."roomId"
+        JOIN public."Players" p ON p.id = ta."playerId"
+        WHERE ta."roomId" = ${active.roomId}
+          AND gw.date >= ${startDate}::date AND gw.date <= ${endDate}::date
+          AND ta.team IN ('A','B')
+        GROUP BY ta."playerId", p.name
+        HAVING COUNT(*) >= 3
+        ORDER BY wins DESC
+        LIMIT 1
+      `
+      const topPlayer = topPlayerRow
+        ? { id: (topPlayerRow as { id: number }).id, name: (topPlayerRow as { name: string }).name, wins: (topPlayerRow as { wins: number }).wins, played: (topPlayerRow as { played: number }).played }
+        : null
+
+      const [pomLeaderRow] = await db.sql`
+        SELECT p.name, COUNT(*)::int AS votes
+        FROM public."Votes" v
+        JOIN public."Gameweeks" gw ON gw.id = v."gameweek_id" AND gw."roomId" = v."roomId"
+        JOIN public."Players" p ON p.id = v."voted_player_id"
+        WHERE v."roomId" = ${active.roomId}
+          AND gw.date >= ${startDate}::date AND gw.date <= ${endDate}::date
+        GROUP BY v."voted_player_id", p.name
+        ORDER BY votes DESC
+        LIMIT 1
+      `
+      const pomLeader = pomLeaderRow
+        ? { name: (pomLeaderRow as { name: string }).name, votes: (pomLeaderRow as { votes: number }).votes }
+        : null
+
+      const [topChemistryRow] = await db.sql`
+        SELECT p1.name AS "nameA", p2.name AS "nameB",
+          COUNT(*)::int AS games,
+          COUNT(*) FILTER (WHERE (ta1.team='A' AND gr."teamA_score">gr."teamB_score") OR (ta1.team='B' AND gr."teamB_score">gr."teamA_score"))::int AS wins
+        FROM public."TeamAssignments" ta1
+        JOIN public."TeamAssignments" ta2 ON ta2."gameweekId"=ta1."gameweekId" AND ta2."roomId"=ta1."roomId" AND ta2.team=ta1.team AND ta2."playerId">ta1."playerId"
+        JOIN public."GameResults" gr ON gr."gameweekId"=ta1."gameweekId" AND gr."roomId"=ta1."roomId"
+        JOIN public."Gameweeks" gw ON gw.id=ta1."gameweekId" AND gw."roomId"=ta1."roomId"
+        JOIN public."Players" p1 ON p1.id=ta1."playerId"
+        JOIN public."Players" p2 ON p2.id=ta2."playerId"
+        WHERE ta1."roomId" = ${active.roomId}
+          AND gw.date >= ${startDate}::date AND gw.date <= ${endDate}::date
+        GROUP BY ta1."playerId", ta2."playerId", p1.name, p2.name
+        HAVING COUNT(*) >= 3
+        ORDER BY (COUNT(*) FILTER (WHERE (ta1.team='A' AND gr."teamA_score">gr."teamB_score") OR (ta1.team='B' AND gr."teamB_score">gr."teamA_score")))::float / COUNT(*) DESC
+        LIMIT 1
+      `
+      const topChemistry = topChemistryRow
+        ? { nameA: (topChemistryRow as { nameA: string }).nameA, nameB: (topChemistryRow as { nameB: string }).nameB, wins: (topChemistryRow as { wins: number }).wins, games: (topChemistryRow as { games: number }).games }
+        : null
+
+      return json({ totalGames, topPlayer, pomLeader, topChemistry })
+    }
+
     if (method === 'GET' && route === '/seasons') {
       const seasons = await db.sql`
         SELECT id, name, "startDate"::text AS "startDate", "endDate"::text AS "endDate", "createdAt"

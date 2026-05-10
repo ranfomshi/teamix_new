@@ -28,7 +28,7 @@ import {
   X,
 } from 'lucide-react'
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { BrowserRouter } from 'react-router-dom'
 import { identify, track, resetIdentity } from './analytics'
 
@@ -76,6 +76,13 @@ type SeasonStat = {
   wins: number
   draws: number
   losses: number
+}
+
+type SeasonSummary = {
+  totalGames: number
+  topPlayer: { id: number; name: string; wins: number; played: number } | null
+  topChemistry: { nameA: string; nameB: string; wins: number; games: number } | null
+  pomLeader: { name: string; votes: number } | null
 }
 
 type Gameweek = {
@@ -430,6 +437,7 @@ function AuthenticatedShell() {
         <main className="app-content">
           <Routes>
             <Route path="/players" element={<PlayersView room={apiState.activeRoom} />} />
+            <Route path="/players/:id" element={<PlayerProfileView room={apiState.activeRoom} />} />
             <Route path="/fixtures" element={<FixturesView room={apiState.activeRoom} externalRefreshKey={fixtureRefreshKey} onResultRecorded={() => setNotifRefreshKey((k) => k + 1)} />} />
             <Route path="/achievements" element={<AchievementsView />} />
             <Route
@@ -1180,6 +1188,51 @@ function sortPlayers(players: Player[], by: SortKey, dir: 'asc' | 'desc'): Playe
   })
 }
 
+function SeasonSummaryCard({ seasonId }: { seasonId: number }) {
+  const { getAccessTokenSilently } = useAuth0()
+  const [summary, setSummary] = useState<SeasonSummary | null>(null)
+
+  useEffect(() => {
+    apiFetch<SeasonSummary>(`/api/seasons/${seasonId}/summary`, getAccessTokenSilently)
+      .then(setSummary).catch(() => {})
+  }, [seasonId, getAccessTokenSilently])
+
+  if (!summary) return null
+
+  return (
+    <div className="season-summary-card">
+      <h3 className="season-summary-title">Season Highlights</h3>
+      <div className="season-summary-grid">
+        {summary.topPlayer && (
+          <div className="season-summary-stat">
+            <span>Top player</span>
+            <strong>{summary.topPlayer.name}</strong>
+            <small>{summary.topPlayer.wins}W from {summary.topPlayer.played} games</small>
+          </div>
+        )}
+        {summary.pomLeader && (
+          <div className="season-summary-stat">
+            <span>Player of the Match</span>
+            <strong>{summary.pomLeader.name}</strong>
+            <small>{summary.pomLeader.votes} votes</small>
+          </div>
+        )}
+        {summary.topChemistry && (
+          <div className="season-summary-stat">
+            <span>Best chemistry</span>
+            <strong>{summary.topChemistry.nameA} & {summary.topChemistry.nameB}</strong>
+            <small>{summary.topChemistry.wins}W from {summary.topChemistry.games} together</small>
+          </div>
+        )}
+        <div className="season-summary-stat">
+          <span>Games played</span>
+          <strong>{summary.totalGames}</strong>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PlayersView({ room }: { room: Room }) {
   const { getAccessTokenSilently, user } = useAuth0()
   const [players, setPlayers] = useState<Player[] | null>(null)
@@ -1193,7 +1246,7 @@ function PlayersView({ room }: { room: Room }) {
   const [search, setSearch] = useState('')
   const [showSearch, setShowSearch] = useState(false)
 
-  const { selectedSeasonId } = useSeason()
+  const { selectedSeasonId, seasons } = useSeason()
 
   useEffect(() => {
     let mounted = true
@@ -1256,6 +1309,10 @@ function PlayersView({ room }: { room: Room }) {
           onCancel={() => setDeletingPlayer(null)}
         />
       ) : null}
+
+      {selectedSeasonId && seasons.find(s => s.id === selectedSeasonId)?.endDate && (
+        <SeasonSummaryCard seasonId={selectedSeasonId} />
+      )}
 
       <div className="stat-grid">
         <StatCard label="Squad size" value={players?.length ?? '--'} />
@@ -3566,9 +3623,258 @@ function PlayerRow({
           ) : combos ? (
             <p className="combos-empty">Need 3+ shared games for combo stats</p>
           ) : null}
+          <div className="player-profile-link-row">
+            <Link to={`/players/${player.id}`} className="player-profile-link">
+              Full profile <ChevronRight size={13} />
+            </Link>
+          </div>
         </div>
       ) : null}
     </article>
+  )
+}
+
+function RatingSparkline({ history }: { history: RatingSnapshot[] }) {
+  if (history.length < 2) return null
+  const W = 300
+  const H = 60
+  const ratings = history.map((r) => r.rating)
+  const minR = Math.min(...ratings)
+  const maxR = Math.max(...ratings)
+  const range = maxR - minR || 1
+  const pad = 4
+
+  const points = history.map((r, i) => {
+    const x = (i / (history.length - 1)) * (W - pad * 2) + pad
+    const y = H - pad - ((r.rating - minR) / range) * (H - pad * 2)
+    return `${x},${y}`
+  })
+
+  const polylinePoints = points.join(' ')
+  const polygonPoints = `${pad},${H} ${polylinePoints} ${W - pad},${H}`
+
+  const firstDate = new Date(history[0].date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+  const lastDate = new Date(history[history.length - 1].date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+
+  return (
+    <div className="rating-chart">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        style={{ width: '100%', height: 60, display: 'block' }}
+      >
+        <defs>
+          <linearGradient id="spark-gradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(40,209,124,0.3)" />
+            <stop offset="100%" stopColor="rgba(40,209,124,0)" />
+          </linearGradient>
+        </defs>
+        <polygon points={polygonPoints} fill="url(#spark-gradient)" />
+        <polyline points={polylinePoints} fill="none" stroke="var(--grass)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+      <p className="rating-chart-dates">{firstDate} → {lastDate}</p>
+    </div>
+  )
+}
+
+function PlayerProfileView({ room }: { room: Room }) {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const { getAccessTokenSilently } = useAuth0()
+
+  const [player, setPlayer] = useState<Player | null>(null)
+  const [ratingHistory, setRatingHistory] = useState<RatingSnapshot[] | null>(null)
+  const [seasonStats, setSeasonStats] = useState<SeasonStat[] | null>(null)
+  const [achievements, setAchievements] = useState<AchievementEntry[] | null>(null)
+  const [combos, setCombos] = useState<PlayerCombos | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!id) return
+    let mounted = true
+
+    async function load() {
+      try {
+        const [players, ratingData, seasonData, achData, comboData] = await Promise.all([
+          apiFetch<Player[]>('/api/players', getAccessTokenSilently),
+          apiFetch<RatingSnapshot[]>(`/api/players/${id}/rating-history`, getAccessTokenSilently),
+          apiFetch<SeasonStat[]>(`/api/players/${id}/season-stats`, getAccessTokenSilently),
+          apiFetch<AchievementEntry[]>(`/api/players/${id}/achievements`, getAccessTokenSilently),
+          apiFetch<PlayerCombos>(`/api/players/${id}/combos`, getAccessTokenSilently),
+        ])
+        if (!mounted) return
+        const found = players.find((p) => String(p.id) === id) ?? null
+        setPlayer(found)
+        setRatingHistory(ratingData)
+        setSeasonStats(seasonData)
+        setAchievements(achData)
+        setCombos(comboData)
+      } catch (err) {
+        if (mounted) setLoadError(err instanceof Error ? err.message : 'Could not load profile')
+      }
+    }
+
+    load()
+    return () => { mounted = false }
+  }, [id, getAccessTokenSilently])
+
+  if (loadError) {
+    return (
+      <section className="screen player-profile">
+        <div className="player-profile-header">
+          <button type="button" className="player-profile-back" onClick={() => navigate('/players')}>
+            ← Players
+          </button>
+        </div>
+        <InlineError message={loadError} />
+      </section>
+    )
+  }
+
+  if (!player) {
+    return (
+      <section className="screen player-profile">
+        <div className="player-profile-header">
+          <button type="button" className="player-profile-back" onClick={() => navigate('/players')}>
+            ← Players
+          </button>
+        </div>
+        <SkeletonList />
+      </section>
+    )
+  }
+
+  const wins = player.wins ?? 0
+  const draws = player.draws ?? 0
+  const losses = player.losses ?? 0
+  const gf = player.goalsFor ?? 0
+  const ga = player.goalsAgainst ?? 0
+  const played = wins + draws + losses
+  const winPct = played > 0 ? Math.round((wins / played) * 100) : 0
+  const goalDiff = gf - ga
+
+  return (
+    <section className="screen player-profile">
+      <div className="player-profile-header">
+        <button type="button" className="player-profile-back" onClick={() => navigate('/players')}>
+          ← Players
+        </button>
+      </div>
+
+      <div className="player-profile-hero">
+        <div
+          className="player-profile-avatar"
+          style={{ borderColor: room.teamAColor ?? 'var(--grass)' }}
+        >
+          {player.profilePicture
+            ? <img src={player.profilePicture} alt="" />
+            : initials(player.name)}
+        </div>
+        <div className="player-profile-identity">
+          <h1 className="player-profile-name">
+            {player.name}
+            {player.isAdmin ? (
+              <span className="admin-badge" title="Room admin">
+                <Shield size={13} fill="currentColor" />
+              </span>
+            ) : null}
+          </h1>
+          <span className="player-profile-rating">{Math.round(Number(player.rating))} pts</span>
+        </div>
+      </div>
+
+      <div className="player-stat-grid">
+        <div><span>Played</span><strong>{played}</strong></div>
+        <div><span>Wins</span><strong>{wins}</strong></div>
+        <div><span>Draws</span><strong>{draws}</strong></div>
+        <div><span>Losses</span><strong>{losses}</strong></div>
+        <div><span>Win %</span><strong>{played > 0 ? `${winPct}%` : '—'}</strong></div>
+        <div><span>Goals for</span><strong>{gf}</strong></div>
+        <div><span>Goals against</span><strong>{ga}</strong></div>
+        <div>
+          <span>Goal diff</span>
+          <strong style={{ color: goalDiff > 0 ? 'var(--grass)' : goalDiff < 0 ? 'var(--danger)' : undefined }}>
+            {goalDiff > 0 ? `+${goalDiff}` : goalDiff}
+          </strong>
+        </div>
+        <div><span>Rating</span><strong>{Math.round(Number(player.rating))}</strong></div>
+      </div>
+
+      {ratingHistory && ratingHistory.length >= 2 ? (
+        <div>
+          <h4 className="player-profile-section-title">Rating history</h4>
+          <RatingSparkline history={ratingHistory} />
+        </div>
+      ) : null}
+
+      {player.fullForm && player.fullForm.length > 0 ? (
+        <div className="form-history-section">
+          <h4 className="form-history-title">Form history</h4>
+          <div className="form-history" aria-hidden="true">
+            {player.fullForm.map((result, index) => (
+              <i
+                key={`ff-${index}`}
+                className={result === 'W' ? 'wins' : result === 'D' ? 'draws' : 'losses'}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {seasonStats && seasonStats.length > 0 ? (
+        <div className="season-stats-section">
+          <h4 className="season-stats-title">Season breakdown</h4>
+          <table className="season-stats-table">
+            <tbody>
+              {seasonStats.map((s) => (
+                <tr key={s.seasonId}>
+                  <td className="season-stats-name">{s.seasonName}</td>
+                  <td className="season-stats-record">{s.wins}W · {s.draws}D · {s.losses}L</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {achievements && achievements.length > 0 ? (
+        <div className="achievements-shelf">
+          <h4 className="achievements-shelf-title">Achievements</h4>
+          <div className="achievements-list">
+            {achievements.map((a, i) => (
+              <div key={`${a.id}-${i}`} className="achievement-chip" title={a.description}>
+                <Trophy size={11} />
+                <span>{a.title}</span>
+                {a.seasonName ? <span className="achievement-season">{a.seasonName}</span> : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {combos && (combos.allies.length > 0 || combos.opponents.length > 0) ? (
+        <div className="combos-section">
+          {combos.allies.length > 0 ? (
+            <div className="combo-group">
+              <h4 className="combo-group-title ally">Best with</h4>
+              {combos.allies.map((c) => (
+                <ComboRow key={c.partnerId} entry={c} variant="ally" />
+              ))}
+            </div>
+          ) : null}
+          {combos.opponents.length > 0 ? (
+            <div className="combo-group">
+              <h4 className="combo-group-title nemesis">Toughest against</h4>
+              {combos.opponents.map((c) => (
+                <ComboRow key={c.partnerId} entry={c} variant="nemesis" />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : combos ? (
+        <p className="combos-empty">Need 3+ shared games for combo stats</p>
+      ) : null}
+    </section>
   )
 }
 
