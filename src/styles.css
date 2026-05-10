@@ -1213,7 +1213,7 @@ button {
   left: 12px;
   z-index: 6;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -2917,6 +2917,37 @@ button {
   padding: 3px 10px;
   border-radius: 20px;
   width: fit-content;
+}
+
+.player-profile-season-label {
+  display: inline-block;
+  background: rgb(255 200 60 / 12%);
+  border: 1px solid rgb(255 200 60 / 30%);
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.profile-achievements-section {
+  padding: 0 16px 8px;
+}
+
+.profile-achievements-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+
+.profile-achievements-empty {
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 8px 0 4px;
 }
 
 .player-profile-section-title {

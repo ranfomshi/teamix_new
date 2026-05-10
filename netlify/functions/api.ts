@@ -875,15 +875,48 @@ export const handler: Handler = async (event) => {
 
     if (playerAchievementsMatch && method === 'GET') {
       const playerId = Number(playerAchievementsMatch[1])
-      const achievements = await db.sql<{ id: number; title: string; description: string; earnedAt: string; seasonName: string | null }>`
-        SELECT a.id, a.title, a.description, pa."earnedAt", s.name AS "seasonName"
+      const filterSeasonId = event.queryStringParameters?.seasonId ? Number(event.queryStringParameters.seasonId) : null
+
+      if (filterSeasonId !== null) {
+        const achievements = await db.sql`
+          SELECT a.id AS "achievementId", a.title, a.description, a."isAllTime",
+                 pa."earnedAt", pa."seasonId", s.name AS "seasonName", true AS "isCompleted"
+          FROM public."Achievements" a
+          JOIN public."PlayerAchievements" pa ON pa."achievementId" = a.id
+            AND pa."playerId" = ${playerId} AND pa."roomId" = ${active.roomId}
+            AND ((a."isAllTime" = true AND pa."seasonId" IS NULL) OR (a."isAllTime" = false AND pa."seasonId" = ${filterSeasonId}))
+          LEFT JOIN public."Seasons" s ON s.id = pa."seasonId"
+          WHERE a."isActive" = true
+          UNION ALL
+          SELECT a.id, a.title, a.description, a."isAllTime", NULL, NULL, NULL, false
+          FROM public."Achievements" a
+          WHERE a."isActive" = true
+            AND NOT EXISTS (
+              SELECT 1 FROM public."PlayerAchievements" pa2
+              WHERE pa2."achievementId" = a.id AND pa2."playerId" = ${playerId} AND pa2."roomId" = ${active.roomId}
+                AND ((a."isAllTime" = true AND pa2."seasonId" IS NULL) OR (a."isAllTime" = false AND pa2."seasonId" = ${filterSeasonId}))
+            )
+          ORDER BY "isAllTime" DESC, "achievementId"
+        `
+        return json(achievements)
+      }
+
+      const achievements = await db.sql`
+        SELECT a.id AS "achievementId", a.title, a.description, a."isAllTime",
+               pa."earnedAt", pa."seasonId", s.name AS "seasonName", true AS "isCompleted"
         FROM public."PlayerAchievements" pa
         JOIN public."Achievements" a ON a.id = pa."achievementId"
         LEFT JOIN public."Seasons" s ON s.id = pa."seasonId"
-        WHERE pa."playerId" = ${playerId}
-          AND pa."roomId" = ${active.roomId}
-          AND a."isActive" = true
-        ORDER BY pa."earnedAt" DESC
+        WHERE pa."playerId" = ${playerId} AND pa."roomId" = ${active.roomId} AND a."isActive" = true
+        UNION ALL
+        SELECT a.id, a.title, a.description, a."isAllTime", NULL, NULL, NULL, false
+        FROM public."Achievements" a
+        WHERE a."isActive" = true
+          AND a.id NOT IN (
+            SELECT pa2."achievementId" FROM public."PlayerAchievements" pa2
+            WHERE pa2."playerId" = ${playerId} AND pa2."roomId" = ${active.roomId}
+          )
+        ORDER BY "isAllTime" DESC, "achievementId"
       `
       return json(achievements)
     }
@@ -928,6 +961,16 @@ export const handler: Handler = async (event) => {
 
     if (playerMatchHistoryMatch && method === 'GET') {
       const playerId = Number(playerMatchHistoryMatch[1])
+      const mhSeasonIdParam = event.queryStringParameters?.seasonId
+      let mhSeasonStart = '1970-01-01'
+      let mhSeasonEnd = '9999-12-31'
+      if (mhSeasonIdParam) {
+        const [mhSeason] = await db.sql`
+          SELECT "startDate"::text AS "startDate", COALESCE("endDate"::text, '9999-12-31') AS "endDate"
+          FROM public."Seasons" WHERE id = ${Number(mhSeasonIdParam)} AND "roomId" = ${active.roomId}
+        `
+        if (mhSeason) { mhSeasonStart = mhSeason.startDate; mhSeasonEnd = mhSeason.endDate }
+      }
       const matchHistory = await db.sql<{
         gameweekId: number; date: string; location: string | null
         team: string; teamAScore: number; teamBScore: number; outcome: 'W' | 'D' | 'L'
@@ -950,6 +993,8 @@ export const handler: Handler = async (event) => {
         WHERE ta."roomId" = ${active.roomId}
           AND ta."playerId" = ${playerId}
           AND ta.team IN ('A', 'B')
+          AND gw.date >= ${mhSeasonStart}
+          AND gw.date <= ${mhSeasonEnd}
         ORDER BY gw.date DESC, gw.id DESC
       `
       return json(matchHistory)
