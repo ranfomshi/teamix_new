@@ -1567,6 +1567,8 @@ function FixturesView({ room, externalRefreshKey = 0, onResultRecorded }: { room
         </div>
       </div>
 
+      {room.isAdmin ? <SeasonStrip /> : null}
+
       {error ? <InlineError message={error} /> : null}
       {!fixtures && !error ? <SkeletonList /> : null}
       {fixtures?.length === 0 ? (
@@ -2585,8 +2587,6 @@ function AccountView({
         />
       ) : null}
 
-      {room.isAdmin ? <SeasonManagementPanel /> : null}
-
       {room.isAdmin ? (
         <div className="collapsible-panel">
           <button className="advanced-toggle" type="button" onClick={() => setShowRoomEdit((value) => !value)}>
@@ -2642,74 +2642,55 @@ function AccountView({
   )
 }
 
-function SeasonManagementPanel() {
+function SeasonStrip() {
   const { getAccessTokenSilently } = useAuth0()
   const { seasons, refreshSeasons, setSelectedSeasonId } = useSeason()
-  const [showForm, setShowForm] = useState(false)
-  const [name, setName] = useState('')
-  const [startDate, setStartDate] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editingName, setEditingName] = useState('')
+  const [showPast, setShowPast] = useState(false)
+  const [showNewForm, setShowNewForm] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newStartDate, setNewStartDate] = useState('')
 
   const activeSeason = seasons.find((s) => s.endDate === null) ?? null
   const pastSeasons = seasons.filter((s) => s.endDate !== null)
 
-  async function createSeason() {
-    if (!name.trim() || !startDate) return
-    setBusy(true)
-    setError(null)
-    try {
-      const season = await apiSend<Season>('/api/seasons', getAccessTokenSilently, { name: name.trim(), startDate })
-      setName('')
-      setStartDate('')
-      setShowForm(false)
-      refreshSeasons()
-      setSelectedSeasonId(season.id)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not create season')
-    } finally {
-      setBusy(false)
-    }
-  }
-
   async function endSeason(id: number) {
-    setBusy(true)
-    setError(null)
+    if (!confirm('End this season? Fixtures and stats will be preserved.')) return
+    setBusy(true); setError(null)
     try {
       await apiRequest(`/api/seasons/${id}/end`, getAccessTokenSilently, { method: 'PUT' })
-      refreshSeasons()
-      setSelectedSeasonId(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not end season')
-    } finally {
-      setBusy(false)
-    }
+      refreshSeasons(); setSelectedSeasonId(null)
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not end season') }
+    finally { setBusy(false) }
   }
 
-  function startEdit(s: Season) {
-    setEditingId(s.id)
-    setEditingName(s.name)
+  async function createSeason() {
+    if (!newName.trim() || !newStartDate) return
+    setBusy(true); setError(null)
+    try {
+      const season = await apiSend<Season>('/api/seasons', getAccessTokenSilently, { name: newName.trim(), startDate: newStartDate })
+      setNewName(''); setNewStartDate(''); setShowNewForm(false)
+      refreshSeasons(); setSelectedSeasonId(season.id)
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not create season') }
+    finally { setBusy(false) }
   }
+
+  function startEdit(s: Season) { setEditingId(s.id); setEditingName(s.name) }
 
   async function saveEdit(id: number) {
     if (!editingName.trim()) return
-    setBusy(true)
-    setError(null)
+    setBusy(true); setError(null)
     try {
       await apiRequest(`/api/seasons/${id}`, getAccessTokenSilently, { method: 'PATCH', body: { name: editingName.trim() } })
-      setEditingId(null)
-      refreshSeasons()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not rename season')
-    } finally {
-      setBusy(false)
-    }
+      setEditingId(null); refreshSeasons()
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not rename season') }
+    finally { setBusy(false) }
   }
 
-  function SeasonNameField({ season }: { season: Season }) {
+  function NameField({ season }: { season: Season }) {
     if (editingId === season.id) {
       return (
         <div className="season-edit-inline">
@@ -2734,32 +2715,66 @@ function SeasonManagementPanel() {
   }
 
   return (
-    <div className="collapsible-panel">
-      <button className="advanced-toggle" type="button" onClick={() => setOpen((o) => !o)}>
-        <span>Seasons</span>
-        <ChevronDown className={open ? 'open' : ''} size={17} />
-      </button>
-      {open ? (
-        <div className="season-panel">
-          {error ? <InlineError message={error} /> : null}
-          {activeSeason ? (
-            <div className="season-active-card">
-              <div>
-                <SeasonNameField season={activeSeason} />
-                <span>Started {new Date(activeSeason.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-              </div>
-              <button type="button" className="season-end-btn" disabled={busy} onClick={() => endSeason(activeSeason.id)}>
-                End season
-              </button>
-            </div>
-          ) : (
-            <p className="muted-note">No active season. Create one to start tracking seasonal stats.</p>
-          )}
-          {pastSeasons.length > 0 ? (
+    <div className="season-strip">
+      {error ? <InlineError message={error} /> : null}
+
+      {activeSeason ? (
+        <div className="season-strip-row">
+          <div className="season-strip-live">
+            <span className="season-strip-dot" />
+            <NameField season={activeSeason} />
+            <span className="season-strip-since">
+              since {new Date(activeSeason.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+            </span>
+          </div>
+          <button type="button" className="season-strip-end" disabled={busy} onClick={() => endSeason(activeSeason.id)}>
+            End
+          </button>
+        </div>
+      ) : (
+        <div className="season-strip-row">
+          <span className="season-strip-none">No active season</span>
+          {!showNewForm ? (
+            <button type="button" className="season-strip-new" onClick={() => setShowNewForm(true)}>
+              <Plus size={13} /> New season
+            </button>
+          ) : null}
+        </div>
+      )}
+
+      {showNewForm ? (
+        <div className="season-strip-form">
+          <input
+            className="season-name-input"
+            value={newName}
+            autoFocus
+            placeholder="Season name"
+            onChange={(e) => setNewName(e.target.value)}
+          />
+          <input
+            type="date"
+            className="season-name-input"
+            value={newStartDate}
+            onChange={(e) => setNewStartDate(e.target.value)}
+          />
+          <div className="season-strip-form-actions">
+            <button type="button" className="season-edit-save" disabled={busy || !newName.trim() || !newStartDate} onClick={createSeason}>Create</button>
+            <button type="button" className="season-edit-cancel" onClick={() => { setShowNewForm(false); setError(null) }}>Cancel</button>
+          </div>
+        </div>
+      ) : null}
+
+      {pastSeasons.length > 0 ? (
+        <div className="season-strip-past">
+          <button type="button" className="season-strip-past-toggle" onClick={() => setShowPast((p) => !p)}>
+            {pastSeasons.length} past {pastSeasons.length === 1 ? 'season' : 'seasons'}
+            <ChevronDown size={13} className={showPast ? 'open' : ''} />
+          </button>
+          {showPast ? (
             <div className="season-past-list">
               {pastSeasons.map((s) => (
                 <div className="season-past-row" key={s.id}>
-                  <SeasonNameField season={s} />
+                  <NameField season={s} />
                   <span className="muted-note">
                     {new Date(s.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                     {' – '}
@@ -2769,30 +2784,6 @@ function SeasonManagementPanel() {
               ))}
             </div>
           ) : null}
-          {!showForm ? (
-            <button type="button" className="secondary-action compact" onClick={() => setShowForm(true)}>
-              <Plus size={15} /> New season
-            </button>
-          ) : (
-            <div className="form-panel embedded">
-              <label>
-                Season name
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Summer 2025" autoFocus />
-              </label>
-              <label>
-                Start date
-                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-              </label>
-              <div className="form-row">
-                <button className="primary-action compact" type="button" onClick={createSeason} disabled={busy || !name.trim() || !startDate}>
-                  Create
-                </button>
-                <button className="secondary-action" type="button" onClick={() => { setShowForm(false); setError(null) }}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       ) : null}
     </div>

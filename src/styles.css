@@ -2690,6 +2690,111 @@ button {
   transform: rotate(180deg);
 }
 
+.season-strip {
+  margin: 0 16px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 2%);
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.season-strip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.season-strip-live {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.season-strip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--grass);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgb(40 209 124 / 20%);
+}
+
+.season-strip-since {
+  font-size: 0.74rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.season-strip-none {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.season-strip-end {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgb(255 111 97 / 40%);
+  background: rgb(255 111 97 / 8%);
+  color: #ff8a7a;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.season-strip-end:disabled { opacity: 0.4; cursor: default; }
+
+.season-strip-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--grass);
+  cursor: pointer;
+}
+
+.season-strip-form {
+  display: grid;
+  gap: 6px;
+}
+
+.season-strip-form-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.season-strip-past {
+  display: grid;
+  gap: 6px;
+}
+
+.season-strip-past-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.season-strip-past-toggle svg.open {
+  transform: rotate(180deg);
+}
+
 .season-panel {
   display: grid;
   gap: 10px;
