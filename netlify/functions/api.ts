@@ -785,6 +785,7 @@ export const handler: Handler = async (event) => {
     const playerAchievementsMatch = route.match(/^\/players\/(\d+)\/achievements$/)
     const playerRatingHistoryMatch = route.match(/^\/players\/(\d+)\/rating-history$/)
     const playerSeasonStatsMatch = route.match(/^\/players\/(\d+)\/season-stats$/)
+    const playerMatchHistoryMatch = route.match(/^\/players\/(\d+)\/match-history$/)
     if (playerCombosMatch && method === 'GET') {
       const playerId = Number(playerCombosMatch[1])
       const allies = await db.sql<{
@@ -923,6 +924,35 @@ export const handler: Handler = async (event) => {
         ORDER BY s."startDate" DESC
       `
       return json(seasonStats)
+    }
+
+    if (playerMatchHistoryMatch && method === 'GET') {
+      const playerId = Number(playerMatchHistoryMatch[1])
+      const matchHistory = await db.sql<{
+        gameweekId: number; date: string; location: string | null
+        team: string; teamAScore: number; teamBScore: number; outcome: 'W' | 'D' | 'L'
+      }>`
+        SELECT gw.id AS "gameweekId",
+               gw.date::text AS date,
+               gw.location,
+               ta.team,
+               gr."teamA_score" AS "teamAScore",
+               gr."teamB_score" AS "teamBScore",
+               CASE
+                 WHEN gr."teamA_score" = gr."teamB_score" THEN 'D'
+                 WHEN (ta.team = 'A' AND gr."teamA_score" > gr."teamB_score")
+                   OR (ta.team = 'B' AND gr."teamB_score" > gr."teamA_score") THEN 'W'
+                 ELSE 'L'
+               END AS outcome
+        FROM public."TeamAssignments" ta
+        JOIN public."GameResults" gr ON gr."gameweekId" = ta."gameweekId" AND gr."roomId" = ta."roomId"
+        JOIN public."Gameweeks" gw ON gw.id = ta."gameweekId" AND gw."roomId" = ta."roomId"
+        WHERE ta."roomId" = ${active.roomId}
+          AND ta."playerId" = ${playerId}
+          AND ta.team IN ('A', 'B')
+        ORDER BY gw.date DESC, gw.id DESC
+      `
+      return json(matchHistory)
     }
 
     if (playerLinkMatch && method === 'PUT') {

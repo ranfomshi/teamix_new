@@ -2273,6 +2273,71 @@ button {
   text-align: center;
 }
 
+.match-history-section {
+  padding: 0 16px 16px;
+}
+
+.match-history-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+.match-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.match-history-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  background: var(--panel);
+  border-radius: 8px;
+  font-size: 0.83rem;
+}
+
+.match-history-date {
+  flex: 1;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.match-history-score {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.match-history-outcome {
+  width: 22px;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 2px 0;
+}
+
+.match-history-outcome--w {
+  background: color-mix(in srgb, var(--grass) 15%, transparent);
+  color: var(--grass);
+}
+
+.match-history-outcome--d {
+  background: color-mix(in srgb, var(--gold) 15%, transparent);
+  color: var(--gold);
+}
+
+.match-history-outcome--l {
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  color: var(--danger);
+}
+
 .combo-group {
   display: flex;
   flex-direction: column;

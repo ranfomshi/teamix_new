@@ -78,6 +78,16 @@ type SeasonStat = {
   losses: number
 }
 
+type MatchResult = {
+  gameweekId: number
+  date: string
+  location: string | null
+  team: string
+  teamAScore: number
+  teamBScore: number
+  outcome: 'W' | 'D' | 'L'
+}
+
 type SeasonSummary = {
   totalGames: number
   topPlayer: { id: number; name: string; wins: number; played: number } | null
@@ -3687,6 +3697,7 @@ function PlayerProfileView({ room }: { room: Room }) {
   const [seasonStats, setSeasonStats] = useState<SeasonStat[] | null>(null)
   const [achievements, setAchievements] = useState<AchievementEntry[] | null>(null)
   const [combos, setCombos] = useState<PlayerCombos | null>(null)
+  const [matchHistory, setMatchHistory] = useState<MatchResult[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -3695,12 +3706,13 @@ function PlayerProfileView({ room }: { room: Room }) {
 
     async function load() {
       try {
-        const [players, ratingData, seasonData, achData, comboData] = await Promise.all([
+        const [players, ratingData, seasonData, achData, comboData, historyData] = await Promise.all([
           apiFetch<Player[]>('/api/players', getAccessTokenSilently),
           apiFetch<RatingSnapshot[]>(`/api/players/${id}/rating-history`, getAccessTokenSilently),
           apiFetch<SeasonStat[]>(`/api/players/${id}/season-stats`, getAccessTokenSilently),
           apiFetch<AchievementEntry[]>(`/api/players/${id}/achievements`, getAccessTokenSilently),
           apiFetch<PlayerCombos>(`/api/players/${id}/combos`, getAccessTokenSilently),
+          apiFetch<MatchResult[]>(`/api/players/${id}/match-history`, getAccessTokenSilently),
         ])
         if (!mounted) return
         const found = players.find((p) => String(p.id) === id) ?? null
@@ -3709,6 +3721,7 @@ function PlayerProfileView({ room }: { room: Room }) {
         setSeasonStats(seasonData)
         setAchievements(achData)
         setCombos(comboData)
+        setMatchHistory(historyData)
       } catch (err) {
         if (mounted) setLoadError(err instanceof Error ? err.message : 'Could not load profile')
       }
@@ -3873,6 +3886,30 @@ function PlayerProfileView({ room }: { room: Room }) {
         </div>
       ) : combos ? (
         <p className="combos-empty">Need 3+ shared games for combo stats</p>
+      ) : null}
+
+      {matchHistory && matchHistory.length > 0 ? (
+        <div className="match-history-section">
+          <h4 className="match-history-title">Match history</h4>
+          <div className="match-history-list">
+            {matchHistory.map((m) => {
+              const d = new Date(m.date)
+              const label = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
+              const scoreDisplay = m.team === 'A'
+                ? `${m.teamAScore}–${m.teamBScore}`
+                : `${m.teamBScore}–${m.teamAScore}`
+              return (
+                <div key={m.gameweekId} className="match-history-row">
+                  <span className="match-history-date">{label}</span>
+                  <span className="match-history-score">{scoreDisplay}</span>
+                  <span className={`match-history-outcome match-history-outcome--${m.outcome.toLowerCase()}`}>
+                    {m.outcome}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       ) : null}
     </section>
   )
