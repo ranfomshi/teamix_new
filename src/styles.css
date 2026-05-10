@@ -631,6 +631,7 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--ink);
 }
 
 .room-code,
