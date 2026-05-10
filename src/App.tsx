@@ -1198,6 +1198,7 @@ function PlayersView({ room }: { room: Room }) {
   useEffect(() => {
     let mounted = true
     setFetchError(null)
+    setPlayers(null)
     async function load() {
       try {
         const url = selectedSeasonId ? `/api/players?seasonId=${selectedSeasonId}` : '/api/players'
@@ -3687,6 +3688,7 @@ function useApi<T>(
   const memoPath = useMemo(() => path, [path])
 
   useEffect(() => {
+    setData(null)
     let mounted = true
 
     async function load() {
