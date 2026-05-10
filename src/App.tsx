@@ -3597,10 +3597,10 @@ function PlayerProfileView({ room }: { room: Room }) {
         const sp = selectedSeasonId ? `?seasonId=${selectedSeasonId}` : ''
         const [players, ratingData, seasonData, achData, comboData, historyData] = await Promise.all([
           apiFetch<Player[]>(`/api/players${sp}`, getAccessTokenSilently),
-          apiFetch<RatingSnapshot[]>(`/api/players/${id}/rating-history`, getAccessTokenSilently),
+          apiFetch<RatingSnapshot[]>(`/api/players/${id}/rating-history${sp}`, getAccessTokenSilently),
           apiFetch<SeasonStat[]>(`/api/players/${id}/season-stats`, getAccessTokenSilently),
           apiFetch<FullAchievement[]>(`/api/players/${id}/achievements${sp}`, getAccessTokenSilently),
-          apiFetch<PlayerCombos>(`/api/players/${id}/combos`, getAccessTokenSilently),
+          apiFetch<PlayerCombos>(`/api/players/${id}/combos${sp}`, getAccessTokenSilently),
           apiFetch<MatchResult[]>(`/api/players/${id}/match-history${sp}`, getAccessTokenSilently),
         ])
         if (!mounted) return

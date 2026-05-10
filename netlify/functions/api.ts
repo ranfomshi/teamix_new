@@ -788,6 +788,16 @@ export const handler: Handler = async (event) => {
     const playerMatchHistoryMatch = route.match(/^\/players\/(\d+)\/match-history$/)
     if (playerCombosMatch && method === 'GET') {
       const playerId = Number(playerCombosMatch[1])
+      const combosSeasonIdParam = event.queryStringParameters?.seasonId
+      let combosSeasonStart = '1970-01-01'
+      let combosSeasonEnd = '9999-12-31'
+      if (combosSeasonIdParam) {
+        const [combosSeason] = await db.sql`
+          SELECT "startDate"::text AS "startDate", COALESCE("endDate"::text, '9999-12-31') AS "endDate"
+          FROM public."Seasons" WHERE id = ${Number(combosSeasonIdParam)} AND "roomId" = ${active.roomId}
+        `
+        if (combosSeason) { combosSeasonStart = combosSeason.startDate; combosSeasonEnd = combosSeason.endDate }
+      }
       const allies = await db.sql<{
         partnerId: number; name: string; profilePicture: string | null
         games: number; wins: number; draws: number; losses: number
@@ -817,10 +827,14 @@ export const handler: Handler = async (event) => {
         JOIN public."GameResults" gr
           ON gr."gameweekId" = ta1."gameweekId"
          AND gr."roomId" = ta1."roomId"
+        JOIN public."Gameweeks" gw
+          ON gw.id = ta1."gameweekId" AND gw."roomId" = ta1."roomId"
         JOIN public."Players" p ON p.id = ta2."playerId"
         WHERE ta1."playerId" = ${playerId}
           AND ta1."roomId" = ${active.roomId}
           AND ta1.team IN ('A', 'B')
+          AND gw.date >= ${combosSeasonStart}
+          AND gw.date <= ${combosSeasonEnd}
         GROUP BY ta2."playerId", p.name, p."profilePicture"
         HAVING COUNT(*) >= 3
         ORDER BY COUNT(*) FILTER (
@@ -858,10 +872,14 @@ export const handler: Handler = async (event) => {
         JOIN public."GameResults" gr
           ON gr."gameweekId" = ta1."gameweekId"
          AND gr."roomId" = ta1."roomId"
+        JOIN public."Gameweeks" gw
+          ON gw.id = ta1."gameweekId" AND gw."roomId" = ta1."roomId"
         JOIN public."Players" p ON p.id = ta2."playerId"
         WHERE ta1."playerId" = ${playerId}
           AND ta1."roomId" = ${active.roomId}
           AND ta1.team IN ('A', 'B')
+          AND gw.date >= ${combosSeasonStart}
+          AND gw.date <= ${combosSeasonEnd}
         GROUP BY ta2."playerId", p.name, p."profilePicture"
         HAVING COUNT(*) >= 3
         ORDER BY COUNT(*) FILTER (
@@ -923,11 +941,23 @@ export const handler: Handler = async (event) => {
 
     if (playerRatingHistoryMatch && method === 'GET') {
       const playerId = Number(playerRatingHistoryMatch[1])
+      const rhSeasonIdParam = event.queryStringParameters?.seasonId
+      let rhSeasonStart = '1970-01-01'
+      let rhSeasonEnd = '9999-12-31'
+      if (rhSeasonIdParam) {
+        const [rhSeason] = await db.sql`
+          SELECT "startDate"::text AS "startDate", COALESCE("endDate"::text, '9999-12-31') AS "endDate"
+          FROM public."Seasons" WHERE id = ${Number(rhSeasonIdParam)} AND "roomId" = ${active.roomId}
+        `
+        if (rhSeason) { rhSeasonStart = rhSeason.startDate; rhSeasonEnd = rhSeason.endDate }
+      }
       const history = await db.sql<{ date: string; rating: number }>`
         SELECT date::text AS date, rating::float AS rating
         FROM public."Ratings"
         WHERE "playerId" = ${playerId}
           AND "roomId" = ${active.roomId}
+          AND date >= ${rhSeasonStart}
+          AND date <= ${rhSeasonEnd}
         ORDER BY date ASC, id ASC
         LIMIT 20
       `
