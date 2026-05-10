@@ -3681,7 +3681,6 @@ function PlayerProfileView({ room }: { room: Room }) {
               </span>
             ) : null}
           </h1>
-          <span className="player-profile-rating">{Math.round(Number(player.rating))} pts</span>
           {selectedSeasonId ? (
             <span className="player-profile-season-label">
               {seasons.find(s => s.id === selectedSeasonId)?.name ?? 'Season'}
@@ -3704,7 +3703,6 @@ function PlayerProfileView({ room }: { room: Room }) {
             {goalDiff > 0 ? `+${goalDiff}` : goalDiff}
           </strong>
         </div>
-        <div><span>Rating</span><strong>{Math.round(Number(player.rating))}</strong></div>
       </div>
 
       {ratingHistory && ratingHistory.length >= 2 ? (
