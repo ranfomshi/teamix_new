@@ -620,6 +620,20 @@ export const handler: Handler = async (event) => {
       return json(season, 201)
     }
 
+    const seasonPatchMatch = route.match(/^\/seasons\/(\d+)$/)
+    if (method === 'PATCH' && seasonPatchMatch) {
+      if (!active.isAdmin) return json({ error: 'Admin only' }, 403)
+      const body = parseBody<{ name?: string }>(event)
+      if (!body.name?.trim()) return json({ error: 'name is required' }, 400)
+      const [season] = await db.sql`
+        UPDATE public."Seasons"
+        SET name = ${body.name.trim()}
+        WHERE id = ${Number(seasonPatchMatch[1])} AND "roomId" = ${active.roomId}
+        RETURNING id, name, "startDate"::text AS "startDate", "endDate"::text AS "endDate"
+      `
+      return season ? json(season) : json({ error: 'Season not found' }, 404)
+    }
+
     const seasonEndMatch = route.match(/^\/seasons\/(\d+)\/end$/)
     if (method === 'PUT' && seasonEndMatch) {
       if (!active.isAdmin) return json({ error: 'Admin only' }, 403)

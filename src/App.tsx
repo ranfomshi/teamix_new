@@ -2651,6 +2651,8 @@ function SeasonManagementPanel() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingName, setEditingName] = useState('')
 
   const activeSeason = seasons.find((s) => s.endDate === null) ?? null
   const pastSeasons = seasons.filter((s) => s.endDate !== null)
@@ -2687,6 +2689,50 @@ function SeasonManagementPanel() {
     }
   }
 
+  function startEdit(s: Season) {
+    setEditingId(s.id)
+    setEditingName(s.name)
+  }
+
+  async function saveEdit(id: number) {
+    if (!editingName.trim()) return
+    setBusy(true)
+    setError(null)
+    try {
+      await apiRequest(`/api/seasons/${id}`, getAccessTokenSilently, { method: 'PATCH', body: { name: editingName.trim() } })
+      setEditingId(null)
+      refreshSeasons()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not rename season')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function SeasonNameField({ season }: { season: Season }) {
+    if (editingId === season.id) {
+      return (
+        <div className="season-edit-inline">
+          <input
+            className="season-name-input"
+            value={editingName}
+            autoFocus
+            onChange={(e) => setEditingName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(season.id); if (e.key === 'Escape') setEditingId(null) }}
+          />
+          <button type="button" className="season-edit-save" disabled={busy || !editingName.trim()} onClick={() => saveEdit(season.id)}>Save</button>
+          <button type="button" className="season-edit-cancel" onClick={() => setEditingId(null)}>✕</button>
+        </div>
+      )
+    }
+    return (
+      <button type="button" className="season-name-btn" onClick={() => startEdit(season)}>
+        <span>{season.name}</span>
+        <Pencil size={12} />
+      </button>
+    )
+  }
+
   return (
     <div className="collapsible-panel">
       <button className="advanced-toggle" type="button" onClick={() => setOpen((o) => !o)}>
@@ -2699,7 +2745,7 @@ function SeasonManagementPanel() {
           {activeSeason ? (
             <div className="season-active-card">
               <div>
-                <strong>{activeSeason.name}</strong>
+                <SeasonNameField season={activeSeason} />
                 <span>Started {new Date(activeSeason.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
               </div>
               <button type="button" className="season-end-btn" disabled={busy} onClick={() => endSeason(activeSeason.id)}>
@@ -2713,7 +2759,7 @@ function SeasonManagementPanel() {
             <div className="season-past-list">
               {pastSeasons.map((s) => (
                 <div className="season-past-row" key={s.id}>
-                  <span>{s.name}</span>
+                  <SeasonNameField season={s} />
                   <span className="muted-note">
                     {new Date(s.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                     {' – '}
@@ -4036,7 +4082,7 @@ async function apiSend<T = unknown>(
 async function apiRequest<T = unknown>(
   path: string,
   getAccessTokenSilently: () => Promise<string>,
-  options: { method: 'POST' | 'PUT' | 'DELETE'; body?: Record<string, unknown> },
+  options: { method: 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: Record<string, unknown> },
 ) {
   const token = await getAccessTokenSilently()
   const response = await fetch(path, {

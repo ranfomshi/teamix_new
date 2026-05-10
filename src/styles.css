@@ -2756,6 +2756,70 @@ button {
   font-size: 0.85rem;
 }
 
+.season-name-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--ink);
+  font-size: inherit;
+  font-weight: 600;
+}
+
+.season-name-btn svg {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.season-name-btn:hover svg {
+  color: var(--ink);
+}
+
+.season-edit-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.season-name-input {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--grass);
+  background: rgb(40 209 124 / 6%);
+  color: var(--ink);
+  width: 140px;
+}
+
+.season-edit-save {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: none;
+  background: var(--grass);
+  color: #07130f;
+  cursor: pointer;
+}
+
+.season-edit-save:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.season-edit-cancel {
+  font-size: 0.8rem;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
 
 .danger-confirm {
   display: grid;
