@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="50" fill="#c05621"/>
+  <!-- jersey -->
+  <ellipse cx="50" cy="78" rx="32" ry="22" fill="#2b6cb0"/>
+  <!-- basketball -->
+  <circle cx="76" cy="38" r="15" fill="#e8651a"/>
+  <path d="M61,38 Q76,28 91,38" stroke="#1a202c" stroke-width="1.8" fill="none"/>
+  <path d="M61,38 Q76,48 91,38" stroke="#1a202c" stroke-width="1.8" fill="none"/>
+  <path d="M76,23 Q82,38 76,53" stroke="#1a202c" stroke-width="1.8" fill="none"/>
+  <!-- face -->
+  <circle cx="44" cy="48" r="21" fill="#fbd38d"/>
+  <!-- headband -->
+  <path d="M23,48 Q44,28 65,48" stroke="#2b6cb0" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <!-- eyes -->
+  <circle cx="37" cy="46" r="5" fill="#fff"/>
+  <circle cx="51" cy="46" r="5" fill="#fff"/>
+  <circle cx="37" cy="47" r="3" fill="#3d1f00"/>
+  <circle cx="51" cy="47" r="3" fill="#3d1f00"/>
+  <circle cx="37.8" cy="46.2" r="1.2" fill="#fff"/>
+  <circle cx="51.8" cy="46.2" r="1.2" fill="#fff"/>
+  <!-- smile -->
+  <path d="M37 57 Q44 63 51 57" stroke="#3d1f00" stroke-width="2" fill="none" stroke-linecap="round"/>
+</svg>

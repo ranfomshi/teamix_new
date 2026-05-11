@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="50" fill="#276749"/>
+  <!-- jersey white -->
+  <ellipse cx="50" cy="78" rx="32" ry="22" fill="#fff"/>
+  <!-- racket -->
+  <ellipse cx="76" cy="36" rx="13" ry="16" fill="none" stroke="#c49a6c" stroke-width="3"/>
+  <ellipse cx="76" cy="36" rx="13" ry="16" fill="rgb(255 255 255 / 15%)"/>
+  <line x1="70" y1="22" x2="82" y2="22" stroke="#c49a6c" stroke-width="1.5"/>
+  <line x1="67" y1="27" x2="85" y2="27" stroke="#c49a6c" stroke-width="1.5"/>
+  <line x1="65" y1="33" x2="87" y2="33" stroke="#c49a6c" stroke-width="1.5"/>
+  <line x1="65" y1="39" x2="87" y2="39" stroke="#c49a6c" stroke-width="1.5"/>
+  <line x1="67" y1="45" x2="85" y2="45" stroke="#c49a6c" stroke-width="1.5"/>
+  <line x1="70" y1="50" x2="82" y2="50" stroke="#c49a6c" stroke-width="1.5"/>
+  <line x1="72" y1="22" x2="70" y2="51" stroke="#c49a6c" stroke-width="1.5"/>
+  <line x1="76" y1="20" x2="76" y2="52" stroke="#c49a6c" stroke-width="1.5"/>
+  <line x1="80" y1="22" x2="82" y2="51" stroke="#c49a6c" stroke-width="1.5"/>
+  <line x1="67" y1="50" x2="60" y2="62" stroke="#8b5e3c" stroke-width="4" stroke-linecap="round"/>
+  <!-- tennis ball -->
+  <circle cx="82" cy="62" r="8" fill="#c6f135"/>
+  <path d="M76,57 Q82,63 88,57" stroke="#fff" stroke-width="1.5" fill="none"/>
+  <path d="M76,67 Q82,61 88,67" stroke="#fff" stroke-width="1.5" fill="none"/>
+  <!-- face -->
+  <circle cx="44" cy="48" r="21" fill="#fbd38d"/>
+  <!-- visor/cap -->
+  <path d="M23,46 Q44,28 65,46" fill="#fff" stroke="#e0e0e0" stroke-width="1"/>
+  <path d="M24,50 Q44,46 64,50" fill="#fff"/>
+  <circle cx="44" cy="44" r="7" fill="#fff"/>
+  <!-- eyes -->
+  <circle cx="37" cy="47" r="5" fill="#fff"/>
+  <circle cx="51" cy="47" r="5" fill="#fff"/>
+  <circle cx="37" cy="48" r="3" fill="#3d1f00"/>
+  <circle cx="51" cy="48" r="3" fill="#3d1f00"/>
+  <!-- smile -->
+  <path d="M37 57 Q44 63 51 57" stroke="#3d1f00" stroke-width="2" fill="none" stroke-linecap="round"/>
+</svg>

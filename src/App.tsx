@@ -1294,7 +1294,14 @@ function PlayersView({ room }: { room: Room }) {
       {editingPlayer ? (
         <EditPlayerForm
           player={editingPlayer}
-          onSaved={() => { setEditingPlayer(null); refresh() }}
+          onSaved={() => {
+            const savedId = editingPlayer.id
+            setEditingPlayer(null)
+            refresh()
+            setTimeout(() => {
+              document.querySelector<HTMLElement>(`[data-player-id="${savedId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }, 150)
+          }}
           onCancel={() => setEditingPlayer(null)}
           auth0Picture={editingPlayer.id === room.playerId ? (user?.picture ?? null) : null}
         />
@@ -1371,7 +1378,7 @@ function PlayersView({ room }: { room: Room }) {
             room={room}
             getAccessTokenSilently={getAccessTokenSilently}
             currentUserPicture={player.id === room.playerId ? (user?.picture ?? null) : null}
-            onEdit={room.isAdmin || player.id === room.playerId ? () => { setEditingPlayer(player); setDeletingPlayer(null); setShowAddForm(false) } : undefined}
+            onEdit={room.isAdmin || player.id === room.playerId ? () => { setEditingPlayer(player); setDeletingPlayer(null); setShowAddForm(false); window.scrollTo({ top: 0, behavior: 'smooth' }) } : undefined}
             onDelete={room.isAdmin ? () => { setDeletingPlayer(player); setEditingPlayer(null); setShowAddForm(false) } : undefined}
           />
         ))}
@@ -3428,7 +3435,7 @@ function PlayerRow({
   }, [expanded, combos, combosLoading, player.id, getAccessTokenSilently])
 
   return (
-    <article className={`player-card${expanded ? ' expanded' : ''}`}>
+    <article className={`player-card${expanded ? ' expanded' : ''}`} data-player-id={player.id}>
       <div className="player-row">
         <button className="player-toggle" type="button" onClick={() => setExpanded((e) => !e)}>
           <div className="rank">{rank}</div>
@@ -4125,18 +4132,24 @@ function resolveAvatar(pic: string | null | undefined, fallback?: string | null)
 }
 
 const BUILT_IN_AVATARS = [
-  { id: 'lion',   label: 'Lion' },
-  { id: 'wolf',   label: 'Wolf' },
-  { id: 'fox',    label: 'Fox' },
-  { id: 'bear',   label: 'Bear' },
-  { id: 'eagle',  label: 'Eagle' },
-  { id: 'shark',  label: 'Shark' },
-  { id: 'ghost',  label: 'Ghost' },
-  { id: 'ninja',  label: 'Ninja' },
-  { id: 'robot',  label: 'Robot' },
-  { id: 'wizard', label: 'Wizard' },
-  { id: 'viking', label: 'Viking' },
-  { id: 'rocket', label: 'Rocket' },
+  { id: 'lion',        label: 'Lion' },
+  { id: 'wolf',        label: 'Wolf' },
+  { id: 'fox',         label: 'Fox' },
+  { id: 'bear',        label: 'Bear' },
+  { id: 'eagle',       label: 'Eagle' },
+  { id: 'shark',       label: 'Shark' },
+  { id: 'ghost',       label: 'Ghost' },
+  { id: 'ninja',       label: 'Ninja' },
+  { id: 'robot',       label: 'Robot' },
+  { id: 'wizard',      label: 'Wizard' },
+  { id: 'viking',      label: 'Viking' },
+  { id: 'rocket',      label: 'Rocket' },
+  { id: 'goalkeeper',  label: 'Goalkeeper' },
+  { id: 'striker',     label: 'Striker' },
+  { id: 'basketball',  label: 'Basketball' },
+  { id: 'tennis',      label: 'Tennis' },
+  { id: 'rugby',       label: 'Rugby' },
+  { id: 'sprinter',    label: 'Sprinter' },
 ]
 
 function formatFixtureDate(fixture: Gameweek) {
