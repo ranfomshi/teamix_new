@@ -1,19 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="50" fill="#44337a"/>
-  <circle cx="50" cy="60" r="32" fill="#6b46c1"/>
-  <circle cx="50" cy="52" r="22" fill="#fbd38d"/>
-  <polygon points="50,4 31,52 69,52" fill="#553c9a"/>
-  <rect x="27" y="50" width="46" height="8" rx="4" fill="#6b46c1"/>
-  <circle cx="58" cy="28" r="3.5" fill="#f6e05e"/>
-  <circle cx="44" cy="40" r="2.5" fill="#f6e05e"/>
-  <circle cx="62" cy="40" r="2" fill="#f6e05e"/>
-  <circle cx="50" cy="22" r="2" fill="#f6e05e"/>
-  <circle cx="41" cy="48" r="5.5" fill="#fff"/>
-  <circle cx="59" cy="48" r="5.5" fill="#fff"/>
-  <circle cx="41" cy="49" r="3.5" fill="#2d3748"/>
-  <circle cx="59" cy="49" r="3.5" fill="#2d3748"/>
-  <circle cx="41.8" cy="48.2" r="1.4" fill="#fff"/>
-  <circle cx="59.8" cy="48.2" r="1.4" fill="#fff"/>
-  <ellipse cx="50" cy="64" rx="12" ry="7" fill="#e2e8f0"/>
-  <path d="M40 59 Q50 56 60 59" stroke="#cbd5e0" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <defs>
+    <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
+    <radialGradient id="bg" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#6D28D9"/><stop offset="100%" stop-color="#1E1B4B"/></radialGradient>
+    <radialGradient id="face" cx="40%" cy="35%" r="65%"><stop offset="0%" stop-color="#FEF3C7"/><stop offset="100%" stop-color="#FDE68A"/></radialGradient>
+    <linearGradient id="hat" x1="50%" y1="0%" x2="50%" y2="100%"><stop offset="0%" stop-color="#4C1D95"/><stop offset="100%" stop-color="#2E1065"/></linearGradient>
+  </defs>
+  <g clip-path="url(#c)">
+    <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+    <!-- robe -->
+    <ellipse cx="50" cy="82" rx="38" ry="28" fill="#4C1D95"/>
+    <!-- face -->
+    <ellipse cx="50" cy="53" rx="22" ry="20" fill="url(#face)"/>
+    <!-- beard -->
+    <path d="M32,62 Q50,80 68,62 Q62,72 50,75 Q38,72 32,62Z" fill="#E5E7EB"/>
+    <!-- mustache -->
+    <path d="M38 60 Q44 56 50 60 Q56 56 62 60" stroke="#D1D5DB" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <!-- eyes — wise sparkly eyes -->
+    <ellipse cx="40" cy="49" rx="6" ry="6.5" fill="#fff"/>
+    <ellipse cx="60" cy="49" rx="6" ry="6.5" fill="#fff"/>
+    <circle cx="40.5" cy="49.5" r="4" fill="#1E3A8A"/>
+    <circle cx="60.5" cy="49.5" r="4" fill="#1E3A8A"/>
+    <circle cx="41.4" cy="48.4" r="1.5" fill="#fff"/>
+    <circle cx="61.4" cy="48.4" r="1.5" fill="#fff"/>
+    <!-- hat body -->
+    <path d="M28,54 Q50,5 72,54Z" fill="url(#hat)"/>
+    <!-- hat brim -->
+    <ellipse cx="50" cy="53" rx="28" ry="7" fill="#5B21B6"/>
+    <!-- stars on hat -->
+    <path d="M50,18 L51.5,22.5 L56,22.5 L52.5,25.5 L54,30 L50,27 L46,30 L47.5,25.5 L44,22.5 L48.5,22.5Z" fill="#FCD34D"/>
+    <circle cx="38" cy="34" r="3" fill="#FCD34D" opacity="0.8"/>
+    <circle cx="63" cy="30" r="2.2" fill="#FCD34D" opacity="0.7"/>
+    <circle cx="56" cy="42" r="1.8" fill="#FCD34D" opacity="0.6"/>
+  </g>
 </svg>

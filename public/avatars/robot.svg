@@ -1,19 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="50" fill="#2c7a7b"/>
-  <line x1="50" y1="16" x2="50" y2="28" stroke="#e2e8f0" stroke-width="3.5"/>
-  <circle cx="50" cy="13" r="5" fill="#fc8181"/>
-  <rect x="22" y="28" width="56" height="46" rx="10" fill="#e2e8f0"/>
-  <rect x="30" y="38" width="17" height="13" rx="4" fill="#2c7a7b"/>
-  <rect x="53" y="38" width="17" height="13" rx="4" fill="#2c7a7b"/>
-  <circle cx="38.5" cy="44.5" r="4.5" fill="#68d391"/>
-  <circle cx="61.5" cy="44.5" r="4.5" fill="#68d391"/>
-  <circle cx="38.5" cy="44.5" r="2" fill="#fff"/>
-  <circle cx="61.5" cy="44.5" r="2" fill="#fff"/>
-  <rect x="30" y="58" width="40" height="10" rx="4" fill="#a0aec0"/>
-  <rect x="33" y="60" width="7" height="6" rx="2" fill="#2c7a7b"/>
-  <rect x="42" y="60" width="7" height="6" rx="2" fill="#2c7a7b"/>
-  <rect x="51" y="60" width="7" height="6" rx="2" fill="#2c7a7b"/>
-  <rect x="60" y="60" width="7" height="6" rx="2" fill="#2c7a7b"/>
-  <rect x="15" y="40" width="9" height="16" rx="4" fill="#a0aec0"/>
-  <rect x="76" y="40" width="9" height="16" rx="4" fill="#a0aec0"/>
+  <defs>
+    <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
+    <radialGradient id="bg" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#0F766E"/><stop offset="100%" stop-color="#042F2E"/></radialGradient>
+    <radialGradient id="head" cx="35%" cy="30%" r="70%"><stop offset="0%" stop-color="#E2E8F0"/><stop offset="100%" stop-color="#94A3B8"/></radialGradient>
+  </defs>
+  <g clip-path="url(#c)">
+    <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+    <!-- neck/body -->
+    <rect x="38" y="72" width="24" height="20" rx="4" fill="#64748B"/>
+    <rect x="30" y="66" width="40" height="12" rx="4" fill="#94A3B8"/>
+    <!-- antenna -->
+    <rect x="48" y="14" width="4" height="14" rx="2" fill="#CBD5E1"/>
+    <circle cx="50" cy="12" r="5" fill="#F87171"/>
+    <circle cx="50" cy="12" r="3" fill="#FCA5A5"/>
+    <!-- head -->
+    <rect x="22" y="27" width="56" height="46" rx="10" fill="url(#head)"/>
+    <!-- screen face / visor -->
+    <rect x="28" y="34" width="44" height="30" rx="6" fill="#0F766E"/>
+    <!-- eye screens -->
+    <rect x="31" y="39" width="17" height="14" rx="4" fill="#1A1A2E"/>
+    <rect x="52" y="39" width="17" height="14" rx="4" fill="#1A1A2E"/>
+    <!-- glowing eye pupils -->
+    <circle cx="39.5" cy="46" r="5" fill="#34D399"/>
+    <circle cx="60.5" cy="46" r="5" fill="#34D399"/>
+    <circle cx="39.5" cy="46" r="2.5" fill="#6EE7B7"/>
+    <circle cx="60.5" cy="46" r="2.5" fill="#6EE7B7"/>
+    <circle cx="40.2" cy="45" r="1" fill="#fff"/>
+    <circle cx="61.2" cy="45" r="1" fill="#fff"/>
+    <!-- LED mouth bar -->
+    <rect x="33" y="59" width="34" height="6" rx="3" fill="#1A1A2E"/>
+    <rect x="35" y="60" width="6" height="4" rx="1.5" fill="#34D399"/>
+    <rect x="43" y="60" width="6" height="4" rx="1.5" fill="#059669"/>
+    <rect x="51" y="60" width="6" height="4" rx="1.5" fill="#34D399"/>
+    <rect x="59" y="60" width="6" height="4" rx="1.5" fill="#059669"/>
+    <!-- side bolts -->
+    <circle cx="22" cy="48" r="4" fill="#64748B"/>
+    <circle cx="22" cy="48" r="2.5" fill="#94A3B8"/>
+    <circle cx="78" cy="48" r="4" fill="#64748B"/>
+    <circle cx="78" cy="48" r="2.5" fill="#94A3B8"/>
+  </g>
 </svg>

@@ -1,15 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="50" fill="#2c3e50"/>
-  <circle cx="50" cy="65" r="32" fill="#8b5e3c"/>
-  <circle cx="50" cy="42" r="25" fill="#fff"/>
-  <circle cx="39" cy="38" r="5.5" fill="#f6c90e"/>
-  <circle cx="61" cy="38" r="5.5" fill="#f6c90e"/>
-  <circle cx="39" cy="39" r="3.5" fill="#1a202c"/>
-  <circle cx="61" cy="39" r="3.5" fill="#1a202c"/>
-  <circle cx="39.8" cy="38.3" r="1.5" fill="#fff"/>
-  <circle cx="61.8" cy="38.3" r="1.5" fill="#fff"/>
-  <polygon points="43,50 57,50 50,62" fill="#f6c90e"/>
-  <line x1="43" y1="50" x2="57" y2="50" stroke="#d4a017" stroke-width="2"/>
-  <path d="M25,42 Q50,22 75,42" fill="#fff"/>
-  <path d="M27,38 Q50,18 73,38" stroke="#e0e0e0" stroke-width="1" fill="none"/>
+  <defs>
+    <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
+    <radialGradient id="bg" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#1E40AF"/><stop offset="100%" stop-color="#0F172A"/></radialGradient>
+    <radialGradient id="body" cx="50%" cy="40%" r="60%"><stop offset="0%" stop-color="#92400E"/><stop offset="100%" stop-color="#5C3D11"/></radialGradient>
+  </defs>
+  <g clip-path="url(#c)">
+    <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+    <!-- body feathers -->
+    <ellipse cx="50" cy="76" rx="38" ry="30" fill="url(#body)"/>
+    <!-- white head -->
+    <ellipse cx="50" cy="42" rx="24" ry="23" fill="#F8FAFC"/>
+    <!-- bold yellow eyes -->
+    <ellipse cx="38" cy="38" rx="6.5" ry="7" fill="#FCD34D"/>
+    <ellipse cx="62" cy="38" rx="6.5" ry="7" fill="#FCD34D"/>
+    <circle cx="38.5" cy="38.5" r="4" fill="#1A1A2E"/>
+    <circle cx="62.5" cy="38.5" r="4" fill="#1A1A2E"/>
+    <circle cx="39.4" cy="37.4" r="1.5" fill="#fff"/>
+    <circle cx="63.4" cy="37.4" r="1.5" fill="#fff"/>
+    <!-- brow ridge - makes eagle look fierce -->
+    <path d="M31 33 Q38 30 45 34" stroke="#9CA3AF" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M55 34 Q62 30 69 33" stroke="#9CA3AF" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <!-- hooked beak -->
+    <path d="M43 50 Q50 47 57 50 Q57 54 50 60 Q43 54 43 50Z" fill="#FBBF24"/>
+    <line x1="43" y1="50" x2="57" y2="50" stroke="#D97706" stroke-width="1.5"/>
+  </g>
 </svg>

@@ -1,23 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="50" fill="#c05621"/>
-  <!-- jersey -->
-  <ellipse cx="50" cy="78" rx="32" ry="22" fill="#2b6cb0"/>
-  <!-- basketball -->
-  <circle cx="76" cy="38" r="15" fill="#e8651a"/>
-  <path d="M61,38 Q76,28 91,38" stroke="#1a202c" stroke-width="1.8" fill="none"/>
-  <path d="M61,38 Q76,48 91,38" stroke="#1a202c" stroke-width="1.8" fill="none"/>
-  <path d="M76,23 Q82,38 76,53" stroke="#1a202c" stroke-width="1.8" fill="none"/>
-  <!-- face -->
-  <circle cx="44" cy="48" r="21" fill="#fbd38d"/>
-  <!-- headband -->
-  <path d="M23,48 Q44,28 65,48" stroke="#2b6cb0" stroke-width="6" fill="none" stroke-linecap="round"/>
-  <!-- eyes -->
-  <circle cx="37" cy="46" r="5" fill="#fff"/>
-  <circle cx="51" cy="46" r="5" fill="#fff"/>
-  <circle cx="37" cy="47" r="3" fill="#3d1f00"/>
-  <circle cx="51" cy="47" r="3" fill="#3d1f00"/>
-  <circle cx="37.8" cy="46.2" r="1.2" fill="#fff"/>
-  <circle cx="51.8" cy="46.2" r="1.2" fill="#fff"/>
-  <!-- smile -->
-  <path d="M37 57 Q44 63 51 57" stroke="#3d1f00" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <defs>
+    <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
+    <radialGradient id="bg" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#EA580C"/><stop offset="100%" stop-color="#431407"/></radialGradient>
+    <radialGradient id="face" cx="40%" cy="35%" r="65%"><stop offset="0%" stop-color="#FEF3C7"/><stop offset="100%" stop-color="#FDE68A"/></radialGradient>
+    <radialGradient id="bball" cx="35%" cy="30%" r="65%"><stop offset="0%" stop-color="#FB923C"/><stop offset="100%" stop-color="#C2410C"/></radialGradient>
+  </defs>
+  <g clip-path="url(#c)">
+    <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+    <!-- jersey -->
+    <ellipse cx="50" cy="82" rx="36" ry="26" fill="#1D4ED8"/>
+    <path d="M20 72 Q50 65 80 72 L80 100 L20 100Z" fill="#1E40AF"/>
+    <path d="M50 65 L50 100" stroke="#FBBF24" stroke-width="3"/>
+    <!-- basketball -->
+    <circle cx="78" cy="38" r="17" fill="url(#bball)"/>
+    <circle cx="78" cy="38" r="17" fill="none" stroke="#7C2D12" stroke-width="1.5"/>
+    <path d="M62,38 Q78,26 94,38" stroke="#7C2D12" stroke-width="2" fill="none"/>
+    <path d="M62,38 Q78,50 94,38" stroke="#7C2D12" stroke-width="2" fill="none"/>
+    <path d="M78,21 Q86,38 78,55" stroke="#7C2D12" stroke-width="2" fill="none"/>
+    <!-- face -->
+    <ellipse cx="44" cy="50" rx="22" ry="21" fill="url(#face)"/>
+    <!-- headband -->
+    <path d="M22,46 Q44,30 66,46" stroke="#DC2626" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <path d="M22,46 Q44,30 66,46" stroke="#B91C1C" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <!-- intense game-face eyes -->
+    <ellipse cx="34" cy="48" rx="6" ry="6.5" fill="#fff"/>
+    <ellipse cx="54" cy="48" rx="6" ry="6.5" fill="#fff"/>
+    <circle cx="34.5" cy="48.5" r="4" fill="#1A1A2E"/>
+    <circle cx="54.5" cy="48.5" r="4" fill="#1A1A2E"/>
+    <circle cx="35.4" cy="47.4" r="1.5" fill="#fff"/>
+    <circle cx="55.4" cy="47.4" r="1.5" fill="#fff"/>
+    <!-- determined mouth -->
+    <path d="M33 59 Q44 63 55 59" stroke="#92400E" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </g>
 </svg>

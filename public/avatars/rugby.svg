@@ -1,24 +1,43 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="50" fill="#2a4365"/>
-  <!-- jersey -->
-  <ellipse cx="50" cy="78" rx="32" ry="22" fill="#c53030"/>
-  <line x1="50" y1="56" x2="50" y2="96" stroke="#fff" stroke-width="3"/>
-  <!-- rugby ball -->
-  <ellipse cx="76" cy="64" rx="13" ry="9" fill="#8b5e3c" transform="rotate(-30 76 64)"/>
-  <ellipse cx="76" cy="64" rx="13" ry="9" fill="none" stroke="#5d3a1a" stroke-width="1.5" transform="rotate(-30 76 64)"/>
-  <line x1="70" y1="57" x2="82" y2="71" stroke="#fff" stroke-width="1.5"/>
-  <!-- scrum cap/helmet -->
-  <ellipse cx="50" cy="38" rx="22" ry="18" fill="#8b5e3c"/>
-  <ellipse cx="50" cy="30" rx="20" ry="12" fill="#6b4226"/>
-  <path d="M28,40 Q50,52 72,40" fill="#6b4226"/>
-  <rect x="30" y="44" width="40" height="7" rx="3" fill="#4a2c0a"/>
-  <!-- eyes fierce -->
-  <circle cx="40" cy="44" r="5" fill="#fff"/>
-  <circle cx="60" cy="44" r="5" fill="#fff"/>
-  <circle cx="40" cy="45" r="3" fill="#3d1f00"/>
-  <circle cx="60" cy="45" r="3" fill="#3d1f00"/>
-  <circle cx="40.8" cy="44.2" r="1.2" fill="#fff"/>
-  <circle cx="60.8" cy="44.2" r="1.2" fill="#fff"/>
-  <!-- mouth set firm -->
-  <path d="M42 53 Q50 50 58 53" stroke="#3d1f00" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <defs>
+    <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
+    <radialGradient id="bg" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#1D4ED8"/><stop offset="100%" stop-color="#0F172A"/></radialGradient>
+    <radialGradient id="face" cx="40%" cy="35%" r="65%"><stop offset="0%" stop-color="#FEF3C7"/><stop offset="100%" stop-color="#FDE68A"/></radialGradient>
+    <radialGradient id="cap" cx="35%" cy="30%" r="70%"><stop offset="0%" stop-color="#A16207"/><stop offset="100%" stop-color="#5C3D11"/></radialGradient>
+    <radialGradient id="ball" cx="35%" cy="30%" r="65%"><stop offset="0%" stop-color="#D97706"/><stop offset="100%" stop-color="#78350F"/></radialGradient>
+  </defs>
+  <g clip-path="url(#c)">
+    <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+    <!-- jersey -->
+    <ellipse cx="50" cy="82" rx="36" ry="26" fill="#DC2626"/>
+    <path d="M20 72 Q50 65 80 72 L80 100 L20 100Z" fill="#B91C1C"/>
+    <line x1="50" y1="65" x2="50" y2="100" stroke="#fff" stroke-width="3"/>
+    <!-- rugby ball -->
+    <ellipse cx="78" cy="65" rx="14" ry="10" fill="url(#ball)" transform="rotate(-25 78 65)"/>
+    <ellipse cx="78" cy="65" rx="14" ry="10" fill="none" stroke="#5C3D11" stroke-width="1.5" transform="rotate(-25 78 65)"/>
+    <line x1="73" y1="58" x2="83" y2="72" stroke="#fff" stroke-width="1.8"/>
+    <line x1="75" y1="57" x2="85" y2="71" stroke="#fff" stroke-width="1" opacity="0.5"/>
+    <!-- scrum cap -->
+    <ellipse cx="50" cy="40" rx="24" ry="20" fill="url(#cap)"/>
+    <ellipse cx="50" cy="30" rx="22" ry="13" fill="#78350F"/>
+    <path d="M26,43 Q50,56 74,43" fill="#5C3D11"/>
+    <!-- ear protectors -->
+    <ellipse cx="27" cy="47" rx="7" ry="9" fill="#78350F"/>
+    <ellipse cx="73" cy="47" rx="7" ry="9" fill="#78350F"/>
+    <!-- chin strap -->
+    <rect x="27" y="50" width="46" height="7" rx="3" fill="#4A2C0A"/>
+    <!-- face -->
+    <ellipse cx="50" cy="48" rx="22" ry="18" fill="url(#face)"/>
+    <!-- tough eyes -->
+    <ellipse cx="40" cy="43" rx="5.5" ry="6" fill="#fff"/>
+    <ellipse cx="60" cy="43" rx="5.5" ry="6" fill="#fff"/>
+    <circle cx="40.5" cy="43.5" r="3.5" fill="#1A1A2E"/>
+    <circle cx="60.5" cy="43.5" r="3.5" fill="#1A1A2E"/>
+    <circle cx="41.4" cy="42.4" r="1.3" fill="#fff"/>
+    <circle cx="61.4" cy="42.4" r="1.3" fill="#fff"/>
+    <!-- game face -->
+    <path d="M42 53 Q50 50 58 53" stroke="#92400E" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- battle scar -->
+    <line x1="43" y1="41" x2="46" y2="46" stroke="#D97706" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+  </g>
 </svg>

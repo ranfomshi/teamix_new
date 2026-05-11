@@ -1,10 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="50" fill="#44337a"/>
-  <path d="M22,88 Q22,34 50,28 Q78,34 78,88 Q68,80 58,88 Q54,80 50,88 Q46,80 42,88 Q32,80 22,88Z" fill="#e9d8fd"/>
-  <circle cx="39" cy="58" r="7" fill="#44337a"/>
-  <circle cx="61" cy="58" r="7" fill="#44337a"/>
-  <circle cx="41" cy="57" r="3" fill="#e9d8fd"/>
-  <circle cx="63" cy="57" r="3" fill="#e9d8fd"/>
-  <path d="M41 70 Q50 78 59 70" stroke="#44337a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <circle cx="50" cy="70" r="2" fill="#44337a"/>
+  <defs>
+    <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
+    <radialGradient id="bg" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#7C3AED"/><stop offset="100%" stop-color="#2E1065"/></radialGradient>
+    <radialGradient id="ghost" cx="40%" cy="30%" r="65%"><stop offset="0%" stop-color="#F5F3FF"/><stop offset="100%" stop-color="#DDD6FE"/></radialGradient>
+  </defs>
+  <g clip-path="url(#c)">
+    <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+    <!-- ghost body -->
+    <path d="M18,96 Q18,28 50,22 Q82,28 82,96 Q72,86 62,96 Q56,86 50,96 Q44,86 38,96 Q28,86 18,96Z" fill="url(#ghost)"/>
+    <!-- eyes -->
+    <ellipse cx="38" cy="56" rx="8" ry="9" fill="#5B21B6"/>
+    <ellipse cx="62" cy="56" rx="8" ry="9" fill="#5B21B6"/>
+    <circle cx="40" cy="56" r="3.5" fill="#EDE9FE"/>
+    <circle cx="64" cy="56" r="3.5" fill="#EDE9FE"/>
+    <!-- O-mouth surprised -->
+    <ellipse cx="50" cy="70" rx="6" ry="7" fill="#5B21B6"/>
+    <!-- floating sparkles -->
+    <circle cx="20" cy="20" r="2" fill="#C4B5FD" opacity="0.8"/>
+    <circle cx="80" cy="25" r="1.5" fill="#C4B5FD" opacity="0.6"/>
+    <circle cx="15" cy="40" r="1.2" fill="#DDD6FE" opacity="0.5"/>
+    <circle cx="85" cy="55" r="1.8" fill="#C4B5FD" opacity="0.7"/>
+    <circle cx="25" cy="70" r="1" fill="#DDD6FE" opacity="0.4"/>
+  </g>
 </svg>

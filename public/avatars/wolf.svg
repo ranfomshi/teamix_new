@@ -1,23 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="50" fill="#4a5568"/>
-  <polygon points="24,44 35,14 46,42" fill="#718096"/>
-  <polygon points="54,42 65,14 76,44" fill="#718096"/>
-  <polygon points="27,43 35,19 43,42" fill="#e8eaf0"/>
-  <polygon points="57,42 65,19 73,43" fill="#e8eaf0"/>
-  <circle cx="50" cy="56" r="30" fill="#718096"/>
-  <ellipse cx="50" cy="65" rx="16" ry="13" fill="#e8eaf0"/>
-  <circle cx="40" cy="50" r="5.5" fill="#fff"/>
-  <circle cx="60" cy="50" r="5.5" fill="#fff"/>
-  <circle cx="40" cy="51" r="3.5" fill="#f6ad55"/>
-  <circle cx="60" cy="51" r="3.5" fill="#f6ad55"/>
-  <circle cx="40.8" cy="50.3" r="1.8" fill="#1a202c"/>
-  <circle cx="60.8" cy="50.3" r="1.8" fill="#1a202c"/>
-  <circle cx="41.4" cy="49.8" r="0.8" fill="#fff"/>
-  <circle cx="61.4" cy="49.8" r="0.8" fill="#fff"/>
-  <ellipse cx="50" cy="61" rx="5" ry="4" fill="#2d3748"/>
-  <path d="M45 66 Q50 71 55 66" stroke="#2d3748" stroke-width="2" fill="none" stroke-linecap="round"/>
-  <line x1="30" y1="59" x2="44" y2="61" stroke="#a0aec0" stroke-width="1.2"/>
-  <line x1="30" y1="63" x2="44" y2="63" stroke="#a0aec0" stroke-width="1.2"/>
-  <line x1="70" y1="59" x2="56" y2="61" stroke="#a0aec0" stroke-width="1.2"/>
-  <line x1="70" y1="63" x2="56" y2="63" stroke="#a0aec0" stroke-width="1.2"/>
+  <defs>
+    <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
+    <radialGradient id="bg" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#6B7280"/><stop offset="100%" stop-color="#1F2937"/></radialGradient>
+    <radialGradient id="face" cx="40%" cy="35%" r="65%"><stop offset="0%" stop-color="#9CA3AF"/><stop offset="100%" stop-color="#6B7280"/></radialGradient>
+  </defs>
+  <g clip-path="url(#c)">
+    <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+    <!-- ears -->
+    <polygon points="22,46 34,10 46,42" fill="#9CA3AF"/>
+    <polygon points="54,42 66,10 78,46" fill="#9CA3AF"/>
+    <polygon points="26,44 34,16 42,42" fill="#F3F4F6"/>
+    <polygon points="58,42 66,16 74,44" fill="#F3F4F6"/>
+    <!-- head -->
+    <ellipse cx="50" cy="54" rx="30" ry="28" fill="url(#face)"/>
+    <!-- snout -->
+    <ellipse cx="50" cy="64" rx="16" ry="13" fill="#E5E7EB"/>
+    <!-- eyes — amber wolf eyes -->
+    <ellipse cx="39" cy="49" rx="6" ry="6.5" fill="#fff"/>
+    <ellipse cx="61" cy="49" rx="6" ry="6.5" fill="#fff"/>
+    <circle cx="39.5" cy="49.5" r="4" fill="#D97706"/>
+    <circle cx="61.5" cy="49.5" r="4" fill="#D97706"/>
+    <circle cx="39.8" cy="49.8" r="2" fill="#111827"/>
+    <circle cx="61.8" cy="49.8" r="2" fill="#111827"/>
+    <circle cx="40.6" cy="48.6" r="1.1" fill="#fff"/>
+    <circle cx="62.6" cy="48.6" r="1.1" fill="#fff"/>
+    <!-- nose -->
+    <ellipse cx="50" cy="60" rx="5" ry="4" fill="#374151"/>
+    <!-- mouth -->
+    <path d="M45 66 Q50 71 55 66" stroke="#374151" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    <line x1="50" y1="64" x2="50" y2="66" stroke="#374151" stroke-width="1.5"/>
+  </g>
 </svg>

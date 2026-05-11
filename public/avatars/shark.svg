@@ -1,11 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="50" fill="#1a56a0"/>
-  <polygon points="50,6 40,36 60,36" fill="#63b3ed"/>
-  <ellipse cx="50" cy="63" rx="32" ry="24" fill="#4299e1"/>
-  <ellipse cx="50" cy="67" rx="24" ry="18" fill="#ebf8ff"/>
-  <circle cx="38" cy="55" r="6.5" fill="#fff"/>
-  <circle cx="38" cy="56" r="4" fill="#1a202c"/>
-  <circle cx="39" cy="55.2" r="1.5" fill="#fff"/>
-  <path d="M30 74 L35 68 L40 74 L45 68 L50 74 L55 68 L60 74 L65 68 L70 74" stroke="#fff" stroke-width="2.5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
-  <path d="M72,55 Q82,50 78,65 Q70,62 72,55Z" fill="#4299e1"/>
+  <defs>
+    <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#0369A1"/><stop offset="100%" stop-color="#0C4A6E"/></linearGradient>
+    <linearGradient id="body" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#38BDF8"/><stop offset="100%" stop-color="#0EA5E9"/></linearGradient>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect x="0" y="0" width="100" height="100" fill="url(#bg)"/>
+    <!-- dorsal fin -->
+    <path d="M42,8 Q50,5 56,10 L62,38 L38,38Z" fill="url(#body)"/>
+    <!-- body -->
+    <ellipse cx="50" cy="65" rx="36" ry="28" fill="url(#body)"/>
+    <!-- belly -->
+    <ellipse cx="50" cy="68" rx="27" ry="20" fill="#E0F2FE"/>
+    <!-- pectoral fins hint -->
+    <path d="M14,60 Q20,48 30,58Z" fill="#0EA5E9"/>
+    <path d="M86,60 Q80,48 70,58Z" fill="#0EA5E9"/>
+    <!-- menacing eye -->
+    <ellipse cx="37" cy="54" rx="7" ry="7" fill="#fff"/>
+    <circle cx="37.5" cy="54.5" r="4.5" fill="#111827"/>
+    <circle cx="38.5" cy="53.2" r="1.6" fill="#fff"/>
+    <!-- toothy grin -->
+    <path d="M28 70 Q50 80 72 70" fill="#111827"/>
+    <path d="M30 70 Q50 76 70 70 Q60 73 50 73 Q40 73 30 70Z" fill="#fff"/>
+    <!-- individual teeth -->
+    <path d="M33 70 L36 75 L39 70Z" fill="#fff"/>
+    <path d="M40 70 L43 76 L46 70Z" fill="#fff"/>
+    <path d="M47 70 L50 77 L53 70Z" fill="#fff"/>
+    <path d="M54 70 L57 76 L60 70Z" fill="#fff"/>
+    <path d="M61 70 L64 75 L67 70Z" fill="#fff"/>
+  </g>
 </svg>

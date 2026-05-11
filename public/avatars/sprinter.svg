@@ -1,29 +1,41 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="50" fill="#d69e2e"/>
-  <!-- body/jersey -->
-  <ellipse cx="50" cy="78" rx="30" ry="22" fill="#f6e05e"/>
-  <!-- sweat bands on arms -->
-  <ellipse cx="20" cy="60" rx="7" ry="5" fill="#e53e3e" transform="rotate(-20 20 60)"/>
-  <ellipse cx="80" cy="60" rx="7" ry="5" fill="#e53e3e" transform="rotate(20 80 60)"/>
-  <!-- face -->
-  <circle cx="50" cy="44" r="22" fill="#fbd38d"/>
-  <!-- sweatband -->
-  <path d="M28,38 Q50,22 72,38" stroke="#e53e3e" stroke-width="7" fill="none" stroke-linecap="round"/>
-  <!-- motion lines -->
-  <line x1="10" y1="36" x2="22" y2="38" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
-  <line x1="8" y1="44" x2="22" y2="44" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
-  <line x1="10" y1="52" x2="22" y2="50" stroke="#fff" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
-  <!-- eyes determined -->
-  <circle cx="41" cy="43" r="5.5" fill="#fff"/>
-  <circle cx="59" cy="43" r="5.5" fill="#fff"/>
-  <circle cx="41" cy="44" r="3.5" fill="#3d1f00"/>
-  <circle cx="59" cy="44" r="3.5" fill="#3d1f00"/>
-  <circle cx="41.8" cy="43.2" r="1.4" fill="#fff"/>
-  <circle cx="59.8" cy="43.2" r="1.4" fill="#fff"/>
-  <!-- gritted teeth / mouth open -->
-  <path d="M40 54 Q50 62 60 54" stroke="#3d1f00" stroke-width="2" fill="none" stroke-linecap="round"/>
-  <path d="M40 54 Q50 59 60 54" fill="#f6e05e"/>
-  <line x1="44" y1="54" x2="44" y2="58" stroke="#3d1f00" stroke-width="1"/>
-  <line x1="50" y1="54" x2="50" y2="59" stroke="#3d1f00" stroke-width="1"/>
-  <line x1="56" y1="54" x2="56" y2="58" stroke="#3d1f00" stroke-width="1"/>
+  <defs>
+    <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
+    <radialGradient id="bg" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#B45309"/><stop offset="100%" stop-color="#1C0A00"/></radialGradient>
+    <radialGradient id="face" cx="40%" cy="35%" r="65%"><stop offset="0%" stop-color="#FEF3C7"/><stop offset="100%" stop-color="#FDE68A"/></radialGradient>
+  </defs>
+  <g clip-path="url(#c)">
+    <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+    <!-- jersey -->
+    <ellipse cx="50" cy="82" rx="36" ry="26" fill="#F59E0B"/>
+    <path d="M20 72 Q50 65 80 72 L80 100 L20 100Z" fill="#D97706"/>
+    <!-- motion blur lines -->
+    <line x1="5" y1="35" x2="24" y2="37" stroke="#FCD34D" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+    <line x1="2" y1="46" x2="22" y2="46" stroke="#FCD34D" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+    <line x1="4" y1="57" x2="22" y2="55" stroke="#FCD34D" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+    <!-- face -->
+    <ellipse cx="52" cy="46" rx="22" ry="21" fill="url(#face)"/>
+    <!-- sweatband -->
+    <path d="M30,40 Q52,24 74,40" stroke="#DC2626" stroke-width="8" fill="none" stroke-linecap="round"/>
+    <path d="M30,40 Q52,24 74,40" stroke="#B91C1C" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- determined race-face eyes slightly squinted with intensity -->
+    <ellipse cx="43" cy="43" rx="6.5" ry="5.5" fill="#fff"/>
+    <ellipse cx="62" cy="43" rx="6.5" ry="5.5" fill="#fff"/>
+    <circle cx="43.5" cy="43.5" r="3.8" fill="#1A1A2E"/>
+    <circle cx="62.5" cy="43.5" r="3.8" fill="#1A1A2E"/>
+    <circle cx="44.4" cy="42.4" r="1.4" fill="#fff"/>
+    <circle cx="63.4" cy="42.4" r="1.4" fill="#fff"/>
+    <!-- furrowed intense brow -->
+    <path d="M36 38 Q43 34 50 37" stroke="#D97706" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M55 37 Q62 34 69 38" stroke="#D97706" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <!-- open mouth — straining/breathing hard -->
+    <path d="M40 54 Q52 63 64 54" stroke="#7C2D12" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M42 54 Q52 61 62 54 Q52 60 42 54Z" fill="#DC2626"/>
+    <line x1="46" y1="54" x2="46" y2="59" stroke="#7C2D12" stroke-width="1.2"/>
+    <line x1="52" y1="54" x2="52" y2="61" stroke="#7C2D12" stroke-width="1.2"/>
+    <line x1="58" y1="54" x2="58" y2="59" stroke="#7C2D12" stroke-width="1.2"/>
+    <!-- sweat drops -->
+    <ellipse cx="74" cy="38" rx="2.5" ry="4" fill="#93C5FD" opacity="0.7" transform="rotate(20 74 38)"/>
+    <ellipse cx="80" cy="46" rx="2" ry="3.2" fill="#93C5FD" opacity="0.5" transform="rotate(15 80 46)"/>
+  </g>
 </svg>
