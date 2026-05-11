@@ -755,6 +755,22 @@ button {
   gap: 10px;
 }
 
+.stat-grid--single {
+  grid-template-columns: 1fr;
+}
+
+.stat-grid--single .stat-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+}
+
+.stat-grid--single .stat-card strong {
+  margin-top: 0;
+  font-size: 1.25rem;
+}
+
 .shell-loading {
   display: grid;
   min-height: 54vh;

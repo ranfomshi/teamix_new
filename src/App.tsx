@@ -1266,10 +1266,6 @@ function PlayersView({ room }: { room: Room }) {
     return () => { mounted = false }
   }, [getAccessTokenSilently, refreshKey, selectedSeasonId])
 
-  const averageRating = players?.length
-    ? Math.round(players.reduce((total, player) => total + Number(player.rating), 0) / players.length)
-    : 0
-
   function refresh() { setRefreshKey((key) => key + 1) }
 
   const sorted = sortPlayers(
@@ -1315,9 +1311,8 @@ function PlayersView({ room }: { room: Room }) {
         <SeasonSummaryCard seasonId={selectedSeasonId} />
       )}
 
-      <div className="stat-grid">
+      <div className="stat-grid stat-grid--single">
         <StatCard label="Squad size" value={players?.length ?? '--'} />
-        <StatCard label="Avg rating" value={averageRating || '--'} />
       </div>
 
       <div className="sort-bar">
