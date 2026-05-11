@@ -1,27 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <defs>
     <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
-    <radialGradient id="bg" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#1E40AF"/><stop offset="100%" stop-color="#0F172A"/></radialGradient>
-    <radialGradient id="body" cx="50%" cy="40%" r="60%"><stop offset="0%" stop-color="#92400E"/><stop offset="100%" stop-color="#5C3D11"/></radialGradient>
+    <radialGradient id="bg" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#1E3A8A"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </radialGradient>
+    <radialGradient id="brown" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#A16207"/>
+      <stop offset="100%" stop-color="#5C3D11"/>
+    </radialGradient>
   </defs>
   <g clip-path="url(#c)">
     <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
-    <!-- body feathers -->
-    <ellipse cx="50" cy="76" rx="38" ry="30" fill="url(#body)"/>
-    <!-- white head -->
-    <ellipse cx="50" cy="42" rx="24" ry="23" fill="#F8FAFC"/>
-    <!-- bold yellow eyes -->
-    <ellipse cx="38" cy="38" rx="6.5" ry="7" fill="#FCD34D"/>
-    <ellipse cx="62" cy="38" rx="6.5" ry="7" fill="#FCD34D"/>
-    <circle cx="38.5" cy="38.5" r="4" fill="#1A1A2E"/>
-    <circle cx="62.5" cy="38.5" r="4" fill="#1A1A2E"/>
-    <circle cx="39.4" cy="37.4" r="1.5" fill="#fff"/>
-    <circle cx="63.4" cy="37.4" r="1.5" fill="#fff"/>
-    <!-- brow ridge - makes eagle look fierce -->
-    <path d="M31 33 Q38 30 45 34" stroke="#9CA3AF" stroke-width="3" fill="none" stroke-linecap="round"/>
-    <path d="M55 34 Q62 30 69 33" stroke="#9CA3AF" stroke-width="3" fill="none" stroke-linecap="round"/>
-    <!-- hooked beak -->
-    <path d="M43 50 Q50 47 57 50 Q57 54 50 60 Q43 54 43 50Z" fill="#FBBF24"/>
-    <line x1="43" y1="50" x2="57" y2="50" stroke="#D97706" stroke-width="1.5"/>
+    <!-- brown body/wings hint at bottom -->
+    <ellipse cx="50" cy="88" rx="42" ry="28" fill="url(#brown)"/>
+    <!-- wing spread suggestion -->
+    <path d="M0,60 Q20,42 36,58Z" fill="#78350F"/>
+    <path d="M100,60 Q80,42 64,58Z" fill="#78350F"/>
+    <!-- white head — large and proud -->
+    <ellipse cx="50" cy="42" rx="26" ry="26" fill="#F8FAFC"/>
+    <!-- white feather texture on head -->
+    <ellipse cx="50" cy="34" rx="20" ry="10" fill="#E2E8F0"/>
+    <!-- fierce yellow eyes with dark pupils -->
+    <circle cx="38" cy="40" r="9" fill="#FBBF24"/>
+    <circle cx="62" cy="40" r="9" fill="#FBBF24"/>
+    <circle cx="38" cy="40" r="5.5" fill="#111827"/>
+    <circle cx="62" cy="40" r="5.5" fill="#111827"/>
+    <circle cx="39.5" cy="38.5" r="2" fill="#fff"/>
+    <circle cx="63.5" cy="38.5" r="2" fill="#fff"/>
+    <!-- heavy brow ridge gives fierce look -->
+    <path d="M29 34 Q38 29 47 34" stroke="#9CA3AF" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M53 34 Q62 29 71 34" stroke="#9CA3AF" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <!-- large hooked yellow beak -->
+    <path d="M40,52 Q50,48 60,52 L55,62 Q50,68 45,62Z" fill="#FBBF24"/>
+    <path d="M40,52 Q50,48 60,52 L58,56 Q50,54 42,56Z" fill="#FCD34D"/>
+    <path d="M40,52 Q50,48 60,52" stroke="#D97706" stroke-width="2" fill="none"/>
   </g>
 </svg>

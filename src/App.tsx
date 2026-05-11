@@ -432,7 +432,7 @@ function AuthenticatedShell() {
   }
 
   return (
-    <SeasonProvider room={apiState.activeRoom} getAccessTokenSilently={getAccessTokenSilently}>
+    <SeasonProvider key={apiState.activeRoom.roomId} room={apiState.activeRoom} getAccessTokenSilently={getAccessTokenSilently}>
       <div className="app-shell">
         <TopBar room={apiState.activeRoom} userName={user?.name ?? 'Player'} getAccessTokenSilently={getAccessTokenSilently} initialNotifications={initialNotifs ?? undefined} onAvailabilityChanged={() => setFixtureRefreshKey((k) => k + 1)} notifRefreshKey={notifRefreshKey} memberships={apiState.memberships} onRoomChanged={() => setReloadKey((key) => key + 1)} />
         <InstallBanner />

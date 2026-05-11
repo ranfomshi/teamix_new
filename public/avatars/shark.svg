@@ -1,32 +1,40 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <defs>
     <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#0369A1"/><stop offset="100%" stop-color="#0C4A6E"/></linearGradient>
-    <linearGradient id="body" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#38BDF8"/><stop offset="100%" stop-color="#0EA5E9"/></linearGradient>
+    <linearGradient id="water" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0EA5E9"/>
+      <stop offset="100%" stop-color="#0C4A6E"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7DD3FC"/>
+      <stop offset="100%" stop-color="#38BDF8"/>
+    </linearGradient>
   </defs>
   <g clip-path="url(#c)">
-    <rect x="0" y="0" width="100" height="100" fill="url(#bg)"/>
-    <!-- dorsal fin -->
-    <path d="M42,8 Q50,5 56,10 L62,38 L38,38Z" fill="url(#body)"/>
-    <!-- body -->
-    <ellipse cx="50" cy="65" rx="36" ry="28" fill="url(#body)"/>
-    <!-- belly -->
-    <ellipse cx="50" cy="68" rx="27" ry="20" fill="#E0F2FE"/>
-    <!-- pectoral fins hint -->
-    <path d="M14,60 Q20,48 30,58Z" fill="#0EA5E9"/>
-    <path d="M86,60 Q80,48 70,58Z" fill="#0EA5E9"/>
-    <!-- menacing eye -->
-    <ellipse cx="37" cy="54" rx="7" ry="7" fill="#fff"/>
-    <circle cx="37.5" cy="54.5" r="4.5" fill="#111827"/>
-    <circle cx="38.5" cy="53.2" r="1.6" fill="#fff"/>
-    <!-- toothy grin -->
-    <path d="M28 70 Q50 80 72 70" fill="#111827"/>
-    <path d="M30 70 Q50 76 70 70 Q60 73 50 73 Q40 73 30 70Z" fill="#fff"/>
-    <!-- individual teeth -->
-    <path d="M33 70 L36 75 L39 70Z" fill="#fff"/>
-    <path d="M40 70 L43 76 L46 70Z" fill="#fff"/>
-    <path d="M47 70 L50 77 L53 70Z" fill="#fff"/>
-    <path d="M54 70 L57 76 L60 70Z" fill="#fff"/>
-    <path d="M61 70 L64 75 L67 70Z" fill="#fff"/>
+    <rect width="100" height="100" fill="url(#water)"/>
+    <!-- dorsal fin - clean triangular shape -->
+    <path d="M44,10 Q50,4 56,10 L60,40 L40,40Z" fill="url(#skin)"/>
+    <!-- shark head/body - simple bold oval -->
+    <ellipse cx="50" cy="64" rx="35" ry="28" fill="url(#skin)"/>
+    <!-- lighter belly -->
+    <ellipse cx="50" cy="68" rx="24" ry="18" fill="#E0F2FE"/>
+    <!-- single menacing eye -->
+    <circle cx="37" cy="56" r="8" fill="#fff"/>
+    <circle cx="37" cy="56" r="5" fill="#111827"/>
+    <circle cx="38.5" cy="54.5" r="2" fill="#fff"/>
+    <!-- clean smile with teeth -->
+    <path d="M26,72 Q50,84 74,72" fill="#0C4A6E"/>
+    <path d="M29,72 Q50,80 71,72" fill="#fff"/>
+    <!-- clean sharp teeth -->
+    <path d="M31,72 L35,77 L39,72Z" fill="#fff"/>
+    <path d="M40,72 L44,78 L48,72Z" fill="#fff"/>
+    <path d="M50,72 L54,78 L58,72Z" fill="#fff"/>
+    <path d="M61,72 L65,77 L69,72Z" fill="#fff"/>
+    <!-- pec fin -->
+    <path d="M76,60 Q90,52 88,70 Q80,66 76,60Z" fill="#38BDF8"/>
+    <!-- bubbles -->
+    <circle cx="18" cy="30" r="3" fill="#fff" opacity="0.3"/>
+    <circle cx="24" cy="20" r="2" fill="#fff" opacity="0.25"/>
+    <circle cx="12" cy="44" r="2.5" fill="#fff" opacity="0.2"/>
   </g>
 </svg>
