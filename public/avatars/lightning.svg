@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
+    <radialGradient id="bg" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#1E3A8A"/>
+      <stop offset="100%" stop-color="#030712"/>
+    </radialGradient>
+    <linearGradient id="bolt" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FEF9C3"/>
+      <stop offset="40%" stop-color="#FCD34D"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#c)">
+    <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+    <!-- glow aura -->
+    <ellipse cx="50" cy="50" rx="28" ry="40" fill="#FCD34D" opacity="0.08"/>
+    <!-- main bold lightning bolt -->
+    <path d="M60,8 L36,52 L52,52 L40,92 L64,48 L48,48Z" fill="url(#bolt)"/>
+    <!-- inner bright core -->
+    <path d="M57,16 L40,52 L52,52 L44,80 L60,52 L48,52Z" fill="#FFFBEB" opacity="0.5"/>
+    <!-- electric sparks -->
+    <line x1="68" y1="28" x2="76" y2="22" stroke="#FCD34D" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+    <line x1="72" y1="38" x2="82" y2="36" stroke="#FCD34D" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+    <line x1="28" y1="62" x2="20" y2="68" stroke="#FCD34D" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+    <line x1="24" y1="52" x2="16" y2="48" stroke="#FCD34D" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+  </g>
+</svg>

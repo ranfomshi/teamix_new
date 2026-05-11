@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
+    <radialGradient id="bg" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#1F2937"/>
+      <stop offset="100%" stop-color="#030712"/>
+    </radialGradient>
+  </defs>
+  <g clip-path="url(#c)">
+    <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+    <!-- target rings — bold high contrast -->
+    <circle cx="50" cy="50" r="42" fill="#DC2626"/>
+    <circle cx="50" cy="50" r="35" fill="#fff"/>
+    <circle cx="50" cy="50" r="28" fill="#DC2626"/>
+    <circle cx="50" cy="50" r="21" fill="#fff"/>
+    <circle cx="50" cy="50" r="14" fill="#DC2626"/>
+    <circle cx="50" cy="50" r="7" fill="#fff"/>
+    <!-- bull centre -->
+    <circle cx="50" cy="50" r="4" fill="#DC2626"/>
+    <!-- arrow stuck in target -->
+    <line x1="82" y1="18" x2="52" y2="48" stroke="#78350F" stroke-width="4" stroke-linecap="round"/>
+    <line x1="80" y1="16" x2="54" y2="50" stroke="#A16207" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- arrow head -->
+    <polygon points="52,48 46,44 50,54" fill="#78350F"/>
+    <!-- arrow fletching -->
+    <path d="M82,18 Q86,12 90,14 Q88,20 82,18Z" fill="#DC2626"/>
+    <path d="M82,18 Q88,12 92,16 Q88,22 82,18Z" fill="#B91C1C"/>
+  </g>
+</svg>

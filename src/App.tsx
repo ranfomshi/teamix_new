@@ -4150,6 +4150,14 @@ const BUILT_IN_AVATARS = [
   { id: 'tennis',      label: 'Tennis' },
   { id: 'rugby',       label: 'Rugby' },
   { id: 'sprinter',    label: 'Sprinter' },
+  { id: 'flame',       label: 'Flame' },
+  { id: 'lightning',   label: 'Lightning' },
+  { id: 'skull',       label: 'Skull' },
+  { id: 'crown',       label: 'Crown' },
+  { id: 'bullseye',    label: 'Bullseye' },
+  { id: 'diamond',     label: 'Diamond' },
+  { id: 'alien',       label: 'Alien' },
+  { id: 'dragon',      label: 'Dragon' },
 ]
 
 function formatFixtureDate(fixture: Gameweek) {

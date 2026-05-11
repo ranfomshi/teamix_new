@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
+    <radialGradient id="bg" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#374151"/>
+      <stop offset="100%" stop-color="#030712"/>
+    </radialGradient>
+    <radialGradient id="bone" cx="40%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#F9FAFB"/>
+      <stop offset="100%" stop-color="#D1D5DB"/>
+    </radialGradient>
+  </defs>
+  <g clip-path="url(#c)">
+    <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+    <!-- skull cranium -->
+    <ellipse cx="50" cy="42" rx="30" ry="28" fill="url(#bone)"/>
+    <!-- jaw -->
+    <rect x="30" y="60" width="40" height="22" rx="8" fill="url(#bone)"/>
+    <!-- jaw teeth gaps -->
+    <rect x="34" y="72" width="8" height="14" rx="2" fill="#1F2937"/>
+    <rect x="44" y="72" width="8" height="14" rx="2" fill="#1F2937"/>
+    <rect x="54" y="72" width="8" height="14" rx="2" fill="#1F2937"/>
+    <!-- jaw line shadow -->
+    <rect x="30" y="60" width="40" height="5" rx="0" fill="#9CA3AF"/>
+    <!-- eye sockets — large and dark -->
+    <ellipse cx="37" cy="42" rx="11" ry="12" fill="#111827"/>
+    <ellipse cx="63" cy="42" rx="11" ry="12" fill="#111827"/>
+    <!-- subtle socket rim highlight -->
+    <ellipse cx="36" cy="40" rx="8" ry="9" fill="#111827"/>
+    <ellipse cx="62" cy="40" rx="8" ry="9" fill="#111827"/>
+    <!-- nose cavity -->
+    <path d="M44,56 Q50,52 56,56 Q54,62 50,64 Q46,62 44,56Z" fill="#111827"/>
+    <!-- skull crack for character -->
+    <path d="M50,14 Q52,24 50,34 Q48,44 50,52" stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>

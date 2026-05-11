@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
+    <radialGradient id="bg" cx="50%" cy="70%" r="80%">
+      <stop offset="0%" stop-color="#DC2626"/>
+      <stop offset="100%" stop-color="#1C0500"/>
+    </radialGradient>
+    <radialGradient id="fire" cx="50%" cy="100%" r="100%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="40%" stop-color="#F97316"/>
+      <stop offset="100%" stop-color="#DC2626" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="core" cx="50%" cy="100%" r="70%">
+      <stop offset="0%" stop-color="#FEF9C3"/>
+      <stop offset="100%" stop-color="#FCD34D" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g clip-path="url(#c)">
+    <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+    <!-- outer flame -->
+    <path d="M50,8 Q62,22 68,38 Q76,28 72,16 Q84,30 82,48 Q86,44 84,52 Q90,64 82,76 Q76,86 62,90 Q56,92 50,92 Q44,92 38,90 Q24,86 18,76 Q10,64 16,52 Q14,44 18,48 Q16,30 28,16 Q24,28 32,38 Q38,22 50,8Z" fill="url(#fire)"/>
+    <!-- inner hot core -->
+    <path d="M50,28 Q56,38 60,50 Q64,44 62,36 Q70,46 68,58 Q72,54 70,62 Q66,74 56,80 Q53,82 50,82 Q47,82 44,80 Q34,74 30,62 Q28,54 32,58 Q30,46 38,36 Q36,44 40,50 Q44,38 50,28Z" fill="url(#core)"/>
+    <!-- brightest tip -->
+    <ellipse cx="50" cy="62" rx="10" ry="14" fill="#FFFBEB" opacity="0.6"/>
+  </g>
+</svg>

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
+    <radialGradient id="bg" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#7F1D1D"/>
+      <stop offset="100%" stop-color="#030712"/>
+    </radialGradient>
+    <radialGradient id="scales" cx="40%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#16A34A"/>
+      <stop offset="100%" stop-color="#052E16"/>
+    </radialGradient>
+  </defs>
+  <g clip-path="url(#c)">
+    <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+    <!-- wings hinted behind head -->
+    <path d="M10,42 Q6,18 24,14 Q22,30 32,40Z" fill="#14532D"/>
+    <path d="M90,42 Q94,18 76,14 Q78,30 68,40Z" fill="#14532D"/>
+    <!-- horns -->
+    <path d="M34,22 Q28,8 36,4 Q38,16 42,24Z" fill="#166534"/>
+    <path d="M66,22 Q72,8 64,4 Q62,16 58,24Z" fill="#166534"/>
+    <!-- head -->
+    <ellipse cx="50" cy="50" rx="32" ry="28" fill="url(#scales)"/>
+    <!-- scale texture overlay -->
+    <path d="M24,44 Q28,40 32,44 Q28,46 24,44Z" fill="#15803D" opacity="0.6"/>
+    <path d="M34,38 Q38,34 42,38 Q38,40 34,38Z" fill="#15803D" opacity="0.6"/>
+    <path d="M44,34 Q48,30 52,34 Q48,36 44,34Z" fill="#15803D" opacity="0.6"/>
+    <path d="M54,38 Q58,34 62,38 Q58,40 54,38Z" fill="#15803D" opacity="0.6"/>
+    <path d="M64,44 Q68,40 72,44 Q68,46 64,44Z" fill="#15803D" opacity="0.6"/>
+    <!-- snout/muzzle extended -->
+    <ellipse cx="50" cy="60" rx="18" ry="14" fill="#16A34A"/>
+    <ellipse cx="50" cy="60" rx="14" ry="10" fill="#15803D"/>
+    <!-- nostrils with fire glow -->
+    <circle cx="44" cy="58" r="4" fill="#052E16"/>
+    <circle cx="56" cy="58" r="4" fill="#052E16"/>
+    <circle cx="44" cy="58" r="2.5" fill="#DC2626" opacity="0.7"/>
+    <circle cx="56" cy="58" r="2.5" fill="#DC2626" opacity="0.7"/>
+    <!-- fierce slit eyes -->
+    <ellipse cx="36" cy="44" rx="9" ry="7" fill="#FBBF24"/>
+    <ellipse cx="64" cy="44" rx="9" ry="7" fill="#FBBF24"/>
+    <ellipse cx="36" cy="44" rx="2.5" ry="6" fill="#111827"/>
+    <ellipse cx="64" cy="44" rx="2.5" ry="6" fill="#111827"/>
+    <circle cx="36" cy="42.5" r="2" fill="#FEF3C7" opacity="0.6"/>
+    <circle cx="64" cy="42.5" r="2" fill="#FEF3C7" opacity="0.6"/>
+    <!-- teeth -->
+    <path d="M36,68 L40,76 L44,68Z" fill="#F8FAFC"/>
+    <path d="M56,68 L60,76 L64,68Z" fill="#F8FAFC"/>
+    <!-- small fire breath -->
+    <path d="M50,72 Q44,80 38,88 Q46,82 50,76 Q54,82 62,88 Q56,80 50,72Z" fill="#F97316" opacity="0.8"/>
+    <path d="M50,74 Q46,80 42,86 Q48,80 50,76 Q52,80 58,86 Q54,80 50,74Z" fill="#FCD34D" opacity="0.7"/>
+  </g>
+</svg>
