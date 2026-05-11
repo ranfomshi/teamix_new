@@ -1061,6 +1061,7 @@ export const handler: Handler = async (event) => {
     if (playerMatch && method === 'PUT') {
       const body = parseBody<{ name?: string; rating?: number; profilePicture?: string | null }>(event)
       const playerId = Number(playerMatch[1])
+      if (playerId !== active.playerId && !auth.isAdmin) return json({ error: 'Admin privileges required to edit another player.' }, 403)
       const [player] = await db.sql`
         UPDATE public."Players"
         SET name = COALESCE(${body.name ?? null}, name),

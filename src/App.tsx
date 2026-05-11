@@ -1370,7 +1370,7 @@ function PlayersView({ room }: { room: Room }) {
             room={room}
             getAccessTokenSilently={getAccessTokenSilently}
             currentUserPicture={player.id === room.playerId ? (user?.picture ?? null) : null}
-            onEdit={room.isAdmin ? () => { setEditingPlayer(player); setDeletingPlayer(null); setShowAddForm(false) } : undefined}
+            onEdit={room.isAdmin || player.id === room.playerId ? () => { setEditingPlayer(player); setDeletingPlayer(null); setShowAddForm(false) } : undefined}
             onDelete={room.isAdmin ? () => { setDeletingPlayer(player); setEditingPlayer(null); setShowAddForm(false) } : undefined}
           />
         ))}
