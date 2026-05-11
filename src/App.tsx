@@ -4,6 +4,7 @@ import HowItWorksPage from './pages/HowItWorksPage'
 import {
   // Activity,
   ArrowDownUp,
+  ArrowLeftRight,
   Bell,
   CalendarDays,
   ChevronRight,
@@ -1865,6 +1866,20 @@ function FixtureCard({
     }
   }
 
+  async function applySwap(fromAId: number, fromBId: number) {
+    setError(null)
+    try {
+      await Promise.all([
+        apiSend('/api/manual-teamassignment', getAccessTokenSilently, { gameweekId: fixture.id, playerId: fromAId, team: 'B' }),
+        apiSend('/api/manual-teamassignment', getAccessTokenSilently, { gameweekId: fixture.id, playerId: fromBId, team: 'A' }),
+      ])
+      track('Swap Suggestion Applied', { fixture_id: fixture.id, player_a: fromAId, player_b: fromBId })
+      setDetailKey((key) => key + 1)
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Could not apply swap')
+    }
+  }
+
   async function deleteFixture() {
     setDeleting(true)
     setError(null)
@@ -2044,6 +2059,16 @@ function FixtureCard({
                 teamBColor={room.teamBColor ?? '#f5c84b'}
                 chemistry={chemistry}
               />
+              {!isPast && room.isAdmin ? (
+                <SwapSuggestion
+                  key={[...teamAPlayers.map((p) => p.id).sort(), '|', ...teamBPlayers.map((p) => p.id).sort()].join(',')}
+                  teamAPlayers={teamAPlayers}
+                  teamBPlayers={teamBPlayers}
+                  teamAColor={room.teamAColor ?? '#28d17c'}
+                  teamBColor={room.teamBColor ?? '#f5c84b'}
+                  onApply={applySwap}
+                />
+              ) : null}
             </div>
           ) : (
             detail.availability ? (
@@ -2437,6 +2462,80 @@ function AdminAvailabilityPanel({
         </div>
       ))}
       {visibleRows.length === 0 ? <p className="muted-note">No players match that search.</p> : null}
+    </div>
+  )
+}
+
+function suggestSwap(teamA: Player[], teamB: Player[]): { fromAId: number; fromBId: number; fromAName: string; fromBName: string; currentGap: number; newGap: number; strongerIsA: boolean } | null {
+  if (!teamA.length || !teamB.length) return null
+  const sumA = teamA.reduce((s, p) => s + Number(p.rating), 0)
+  const sumB = teamB.reduce((s, p) => s + Number(p.rating), 0)
+  const avgA = sumA / teamA.length
+  const avgB = sumB / teamB.length
+  const currentGap = Math.abs(avgA - avgB)
+  if (currentGap < 3) return null
+
+  let best: { fromA: Player; fromB: Player; newGap: number } | null = null
+
+  for (const pa of teamA) {
+    for (const pb of teamB) {
+      const newAvgA = (sumA - Number(pa.rating) + Number(pb.rating)) / teamA.length
+      const newAvgB = (sumB - Number(pb.rating) + Number(pa.rating)) / teamB.length
+      const newGap = Math.abs(newAvgA - newAvgB)
+      if (newGap < currentGap && (!best || newGap < best.newGap)) {
+        best = { fromA: pa, fromB: pb, newGap }
+      }
+    }
+  }
+
+  if (!best) return null
+  return {
+    fromAId: best.fromA.id, fromAName: best.fromA.name,
+    fromBId: best.fromB.id, fromBName: best.fromB.name,
+    currentGap, newGap: best.newGap, strongerIsA: avgA >= avgB,
+  }
+}
+
+function SwapSuggestion({
+  teamAPlayers, teamBPlayers, teamAColor, teamBColor, onApply,
+}: {
+  teamAPlayers: Player[]; teamBPlayers: Player[]; teamAColor: string; teamBColor: string
+  onApply: (fromAId: number, fromBId: number) => Promise<void>
+}) {
+  const [dismissed, setDismissed] = useState(false)
+  const [applying, setApplying] = useState(false)
+  const s = useMemo(() => suggestSwap(teamAPlayers, teamBPlayers), [teamAPlayers, teamBPlayers])
+
+  if (!s || dismissed) return null
+  const snap = s
+
+  const strongerColor = snap.strongerIsA ? teamAColor : teamBColor
+  const weakerColor = snap.strongerIsA ? teamBColor : teamAColor
+  const strongerName = snap.strongerIsA ? snap.fromAName : snap.fromBName
+  const weakerName = snap.strongerIsA ? snap.fromBName : snap.fromAName
+
+  async function apply() {
+    setApplying(true)
+    try { await onApply(snap.fromAId, snap.fromBId); setDismissed(true) }
+    finally { setApplying(false) }
+  }
+
+  return (
+    <div className="swap-suggestion">
+      <div className="swap-suggestion-header">
+        <ArrowLeftRight size={13} />
+        <span>Suggested swap</span>
+        <button type="button" className="swap-dismiss" onClick={() => setDismissed(true)} aria-label="Dismiss"><X size={13} /></button>
+      </div>
+      <div className="swap-suggestion-players">
+        <span className="swap-player" style={{ borderColor: strongerColor }}>{strongerName}</span>
+        <ArrowLeftRight size={14} />
+        <span className="swap-player" style={{ borderColor: weakerColor }}>{weakerName}</span>
+      </div>
+      <div className="swap-suggestion-footer">
+        <span className="swap-delta">Gap {snap.currentGap.toFixed(1)} → {snap.newGap.toFixed(1)} pts</span>
+        <button type="button" className="swap-apply" onClick={apply} disabled={applying}>{applying ? 'Applying…' : 'Apply'}</button>
+      </div>
     </div>
   )
 }
