@@ -1106,8 +1106,8 @@ function NotificationBell({
                           onClick={() => castVote(n.gameweekId, p.id)}
                         >
                           <div className="avatar small">
-                            {p.profilePicture
-                              ? <img src={p.profilePicture} alt="" />
+                            {resolveAvatar(p.profilePicture)
+                              ? <img src={resolveAvatar(p.profilePicture)!} alt="" />
                               : initials(p.name)}
                           </div>
                           {p.name}
@@ -1296,6 +1296,7 @@ function PlayersView({ room }: { room: Room }) {
           player={editingPlayer}
           onSaved={() => { setEditingPlayer(null); refresh() }}
           onCancel={() => setEditingPlayer(null)}
+          auth0Picture={editingPlayer.id === room.playerId ? (user?.picture ?? null) : null}
         />
       ) : null}
 
@@ -1433,9 +1434,10 @@ function AddPlayerForm({ onCreated, existingNames }: { onCreated: () => void; ex
   )
 }
 
-function EditPlayerForm({ player, onSaved, onCancel }: { player: Player; onSaved: () => void; onCancel: () => void }) {
+function EditPlayerForm({ player, onSaved, onCancel, auth0Picture }: { player: Player; onSaved: () => void; onCancel: () => void; auth0Picture?: string | null }) {
   const { getAccessTokenSilently } = useAuth0()
   const [name, setName] = useState(player.name)
+  const [avatar, setAvatar] = useState<string | null>(player.profilePicture ?? null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -1444,7 +1446,7 @@ function EditPlayerForm({ player, onSaved, onCancel }: { player: Player; onSaved
     setBusy(true)
     setError(null)
     try {
-      await apiRequest(`/api/players/${player.id}`, getAccessTokenSilently, { method: 'PUT', body: { name: name.trim() } })
+      await apiRequest(`/api/players/${player.id}`, getAccessTokenSilently, { method: 'PUT', body: { name: name.trim(), profilePicture: avatar } })
       onSaved()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not update player')
@@ -1452,6 +1454,8 @@ function EditPlayerForm({ player, onSaved, onCancel }: { player: Player; onSaved
       setBusy(false)
     }
   }
+
+  const isInitials = !avatar || avatar === 'initials'
 
   return (
     <div className="form-panel wide">
@@ -1466,6 +1470,24 @@ function EditPlayerForm({ player, onSaved, onCancel }: { player: Player; onSaved
           autoFocus
         />
       </label>
+      <div className="avatar-picker">
+        <span className="avatar-picker-label">Avatar</span>
+        <div className="avatar-picker-grid">
+          <button type="button" className={`avatar-option${isInitials ? ' selected' : ''}`} onClick={() => setAvatar('initials')} title="Initials">
+            <div className="avatar-option-initials">{initials(player.name || 'P')}</div>
+          </button>
+          {auth0Picture ? (
+            <button type="button" className={`avatar-option${avatar === auth0Picture ? ' selected' : ''}`} onClick={() => setAvatar(auth0Picture)} title="Your photo">
+              <img src={auth0Picture} alt="Photo" />
+            </button>
+          ) : null}
+          {BUILT_IN_AVATARS.map(({ id, label }) => (
+            <button key={id} type="button" className={`avatar-option${avatar === `/avatars/${id}.svg` ? ' selected' : ''}`} onClick={() => setAvatar(`/avatars/${id}.svg`)} title={label}>
+              <img src={`/avatars/${id}.svg`} alt={label} />
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="form-row">
         <button className="primary-action compact" type="button" onClick={submit} disabled={busy || !name.trim()}>Save</button>
         <button className="secondary-action" type="button" onClick={onCancel}>Cancel</button>
@@ -3411,8 +3433,8 @@ function PlayerRow({
         <button className="player-toggle" type="button" onClick={() => setExpanded((e) => !e)}>
           <div className="rank">{rank}</div>
           <div className="avatar" style={{ borderColor: rank % 2 ? room.teamAColor : room.teamBColor }}>
-            {(player.profilePicture ?? currentUserPicture)
-              ? <img src={(player.profilePicture ?? currentUserPicture)!} alt="" />
+            {resolveAvatar(player.profilePicture, currentUserPicture)
+              ? <img src={resolveAvatar(player.profilePicture, currentUserPicture)!} alt="" />
               : initials(player.name)}
           </div>
           <div className="player-main">
@@ -3700,8 +3722,8 @@ function PlayerProfileView({ room }: { room: Room }) {
           className="player-profile-avatar"
           style={{ borderColor: room.teamAColor ?? 'var(--grass)' }}
         >
-          {player.profilePicture
-            ? <img src={player.profilePicture} alt="" />
+          {resolveAvatar(player.profilePicture)
+            ? <img src={resolveAvatar(player.profilePicture)!} alt="" />
             : initials(player.name)}
         </div>
         <div className="player-profile-identity">
@@ -3877,8 +3899,8 @@ function ComboRow({ entry, variant }: { entry: ComboEntry; variant: 'ally' | 'ne
   return (
     <div className={`combo-row combo-row--${variant}`}>
       <div className="combo-avatar">
-        {entry.profilePicture
-          ? <img src={entry.profilePicture} alt="" />
+        {resolveAvatar(entry.profilePicture)
+          ? <img src={resolveAvatar(entry.profilePicture)!} alt="" />
           : initials(entry.name)}
       </div>
       <span className="combo-name">{entry.name}</span>
@@ -4096,6 +4118,26 @@ function initials(name: string) {
     .slice(0, 2)
     .toUpperCase()
 }
+
+function resolveAvatar(pic: string | null | undefined, fallback?: string | null): string | null {
+  if (!pic || pic === 'initials') return fallback ?? null
+  return pic
+}
+
+const BUILT_IN_AVATARS = [
+  { id: 'lion',   label: 'Lion' },
+  { id: 'wolf',   label: 'Wolf' },
+  { id: 'fox',    label: 'Fox' },
+  { id: 'bear',   label: 'Bear' },
+  { id: 'eagle',  label: 'Eagle' },
+  { id: 'shark',  label: 'Shark' },
+  { id: 'ghost',  label: 'Ghost' },
+  { id: 'ninja',  label: 'Ninja' },
+  { id: 'robot',  label: 'Robot' },
+  { id: 'wizard', label: 'Wizard' },
+  { id: 'viking', label: 'Viking' },
+  { id: 'rocket', label: 'Rocket' },
+]
 
 function formatFixtureDate(fixture: Gameweek) {
   return new Date(fixture.date).toLocaleDateString(undefined, {

@@ -1667,6 +1667,7 @@ export const handler: Handler = async (event) => {
           FROM public."RoomMemberships" rm
           WHERE rm."playerId" = p.id
             AND rm."auth0Id" = ${auth.sub}
+            AND (p."profilePicture" IS NULL OR (p."profilePicture" NOT LIKE '/avatars/%' AND p."profilePicture" <> 'initials'))
         `
       }
       return json({ ok: true })

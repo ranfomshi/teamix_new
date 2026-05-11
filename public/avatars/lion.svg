@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="50" fill="#f5a623"/>
+  <circle cx="50" cy="56" r="33" fill="#d4851a"/>
+  <circle cx="27" cy="30" r="11" fill="#f5a623"/>
+  <circle cx="73" cy="30" r="11" fill="#f5a623"/>
+  <circle cx="27" cy="30" r="7" fill="#f7c97e"/>
+  <circle cx="73" cy="30" r="7" fill="#f7c97e"/>
+  <circle cx="50" cy="50" r="25" fill="#f7c97e"/>
+  <circle cx="41" cy="45" r="5.5" fill="#fff"/>
+  <circle cx="59" cy="45" r="5.5" fill="#fff"/>
+  <circle cx="42" cy="46" r="3.5" fill="#3d1f00"/>
+  <circle cx="60" cy="46" r="3.5" fill="#3d1f00"/>
+  <circle cx="43" cy="45" r="1.5" fill="#fff"/>
+  <circle cx="61" cy="45" r="1.5" fill="#fff"/>
+  <ellipse cx="50" cy="55" rx="5" ry="4" fill="#c0392b"/>
+  <path d="M45 60 Q50 66 55 60" stroke="#3d1f00" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <line x1="32" y1="53" x2="44" y2="55" stroke="#d4851a" stroke-width="1.2"/>
+  <line x1="32" y1="57" x2="44" y2="57" stroke="#d4851a" stroke-width="1.2"/>
+  <line x1="68" y1="53" x2="56" y2="55" stroke="#d4851a" stroke-width="1.2"/>
+  <line x1="68" y1="57" x2="56" y2="57" stroke="#d4851a" stroke-width="1.2"/>
+</svg>
