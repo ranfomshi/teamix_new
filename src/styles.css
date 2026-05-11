@@ -1724,6 +1724,12 @@ button {
   cursor: not-allowed;
 }
 
+.swap-balanced-msg {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0;
+}
+
 .chemistry-section {
   border-top: 1px solid var(--line);
   padding-top: 10px;

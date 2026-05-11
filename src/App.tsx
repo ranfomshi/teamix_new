@@ -2473,7 +2473,6 @@ function suggestSwap(teamA: Player[], teamB: Player[]): { fromAId: number; fromB
   const avgA = sumA / teamA.length
   const avgB = sumB / teamB.length
   const currentGap = Math.abs(avgA - avgB)
-  if (currentGap < 3) return null
 
   let best: { fromA: Player; fromB: Player; newGap: number } | null = null
 
@@ -2506,7 +2505,21 @@ function SwapSuggestion({
   const [applying, setApplying] = useState(false)
   const s = useMemo(() => suggestSwap(teamAPlayers, teamBPlayers), [teamAPlayers, teamBPlayers])
 
-  if (!s || dismissed) return null
+  if (dismissed) return null
+
+  if (!s) {
+    return (
+      <div className="swap-suggestion swap-suggestion--balanced">
+        <div className="swap-suggestion-header">
+          <ArrowLeftRight size={13} />
+          <span>Suggested swap</span>
+          <button type="button" className="swap-dismiss" onClick={() => setDismissed(true)} aria-label="Dismiss"><X size={13} /></button>
+        </div>
+        <p className="swap-balanced-msg">Teams are evenly matched — no swap needed.</p>
+      </div>
+    )
+  }
+
   const snap = s
 
   const strongerColor = snap.strongerIsA ? teamAColor : teamBColor
