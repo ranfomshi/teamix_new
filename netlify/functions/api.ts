@@ -1332,15 +1332,32 @@ export const handler: Handler = async (event) => {
                json_build_object(
                  'id', p.id,
                  'name', p.name,
-                 'rating', p.rating,
+                 'rating', COALESCE(pgr.pre_rating, p.rating),
                  'profilePicture', p."profilePicture",
                  'auth0Id', rm."auth0Id",
                  'isMember', COALESCE(rm."isMember", false)
                ) AS "Player"
         FROM public."TeamAssignments" ta
         JOIN public."Players" p ON p.id = ta."playerId"
+        JOIN public."Gameweeks" gw ON gw.id = ta."gameweekId" AND gw."roomId" = ta."roomId"
+        LEFT JOIN public."GameResults" gr
+          ON gr."gameweekId" = ta."gameweekId" AND gr."roomId" = ta."roomId"
         LEFT JOIN public."RoomMemberships" rm
           ON rm."playerId" = p.id AND rm."roomId" = ta."roomId"
+        LEFT JOIN LATERAL (
+          SELECT AVG(r.rating) AS pre_rating
+          FROM (
+            SELECT r2.rating
+            FROM public."Ratings" r2
+            WHERE r2."playerId" = ta."playerId"
+              AND r2."roomId" = ta."roomId"
+              AND r2."raterId" IS NULL
+              AND r2.date < gw.date
+              AND gr.id IS NOT NULL
+            ORDER BY r2.date DESC, r2.id DESC
+            LIMIT 5
+          ) r
+        ) pgr ON true
         WHERE ta."gameweekId" = ${gameweekId}
           AND ta."roomId" = ${active.roomId}
         ORDER BY ta.team ASC, p.rating DESC NULLS LAST
