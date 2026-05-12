@@ -1452,7 +1452,9 @@ export const handler: Handler = async (event) => {
         console.error('[teamix] updatePlayerRatings failed for gameweek', body.gameweekId, e)
       }
       snapshotChemistry(body.gameweekId, active.roomId).catch((e) => console.error('[chemistry snapshot]', e))
-      await awardAchievementsForGameweek(body.gameweekId, active.roomId, body.teamA_score, body.teamB_score)
+      awardAchievementsForGameweek(body.gameweekId, active.roomId, body.teamA_score, body.teamB_score).catch((e) =>
+        console.error('[teamix] awardAchievementsForGameweek failed:', e)
+      )
       return json(result)
     }
 
@@ -2166,7 +2168,9 @@ async function recalculateIfResultExists(gameweekId: number, roomId: number) {
       AND "raterId" IS NULL
   `
   await updatePlayerRatings(gameweekId, roomId)
-  await awardAchievementsForGameweek(gameweekId, roomId, existingResult.teamA_score, existingResult.teamB_score)
+  await awardAchievementsForGameweek(gameweekId, roomId, existingResult.teamA_score, existingResult.teamB_score).catch((e) =>
+    console.error('[teamix] awardAchievementsForGameweek failed:', e)
+  )
 }
 
 async function updatePlayerRatings(gameweekId: number, roomId: number) {
@@ -2304,31 +2308,12 @@ async function awardAchievementsForGameweek(gameweekId: number, roomId: number, 
     const allTimeSet = new Set(achievementFlags.filter((a) => a.isAllTime).map((a) => Number(a.id)))
 
     for (const achievementId of eligibleIds) {
-      if (allTimeSet.has(achievementId)) {
-        // All-time: insert with seasonId = NULL
-        await db.sql`
-          INSERT INTO public."PlayerAchievements" ("playerId", "achievementId", "roomId", "seasonId", "earnedAt", "createdAt", "updatedAt")
-          VALUES (${assignment.playerId}, ${achievementId}, ${roomId}, NULL, ${earnedAt}, NOW(), NOW())
-          ON CONFLICT ("playerId", "achievementId") WHERE "seasonId" IS NULL
-          DO UPDATE SET "earnedAt" = LEAST("PlayerAchievements"."earnedAt", EXCLUDED."earnedAt"), "updatedAt" = NOW()
-        `
-      } else if (seasonId !== null) {
-        // Seasonal within an explicit season — re-earnable per season
-        await db.sql`
-          INSERT INTO public."PlayerAchievements" ("playerId", "achievementId", "roomId", "seasonId", "earnedAt", "createdAt", "updatedAt")
-          VALUES (${assignment.playerId}, ${achievementId}, ${roomId}, ${seasonId}, ${earnedAt}, NOW(), NOW())
-          ON CONFLICT ("playerId", "achievementId", "seasonId") WHERE "seasonId" IS NOT NULL
-          DO UPDATE SET "earnedAt" = LEAST("PlayerAchievements"."earnedAt", EXCLUDED."earnedAt"), "updatedAt" = NOW()
-        `
-      } else {
-        // Seasonal but no season exists — treat room as one ongoing season (earn-once)
-        await db.sql`
-          INSERT INTO public."PlayerAchievements" ("playerId", "achievementId", "roomId", "seasonId", "earnedAt", "createdAt", "updatedAt")
-          VALUES (${assignment.playerId}, ${achievementId}, ${roomId}, NULL, ${earnedAt}, NOW(), NOW())
-          ON CONFLICT ("playerId", "achievementId") WHERE "seasonId" IS NULL
-          DO UPDATE SET "earnedAt" = LEAST("PlayerAchievements"."earnedAt", EXCLUDED."earnedAt"), "updatedAt" = NOW()
-        `
-      }
+      const sId = allTimeSet.has(achievementId) ? null : seasonId
+      await db.sql`
+        INSERT INTO public."PlayerAchievements" ("playerId", "achievementId", "roomId", "seasonId", "earnedAt", "createdAt", "updatedAt")
+        VALUES (${assignment.playerId}, ${achievementId}, ${roomId}, ${sId}, ${earnedAt}, NOW(), NOW())
+        ON CONFLICT DO NOTHING
+      `
     }
   }
 }
