@@ -870,26 +870,8 @@ function TopBar({
   const [copied, setCopied] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [switching, setSwitching] = useState<number | null>(null)
-  const [eggStatus, setEggStatus] = useState<'idle' | 'working' | 'done'>('idle')
-  const eggCountRef = useRef(0)
-  const eggTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { seasons, selectedSeasonId, setSelectedSeasonId } = useSeason()
   const otherRooms = memberships.filter((m) => m.roomId !== room.roomId)
-
-  function handleLogoClick() {
-    if (!room.isAdmin || eggStatus === 'working') return
-    eggCountRef.current += 1
-    if (eggTimerRef.current) clearTimeout(eggTimerRef.current)
-    eggTimerRef.current = setTimeout(() => { eggCountRef.current = 0 }, 2500)
-    if (eggCountRef.current >= 5) {
-      eggCountRef.current = 0
-      clearTimeout(eggTimerRef.current!)
-      setEggStatus('working')
-      apiSend('/api/recalculate-achievements', getAccessTokenSilently, {})
-        .then(() => { setEggStatus('done'); setTimeout(() => setEggStatus('idle'), 2000) })
-        .catch(() => setEggStatus('idle'))
-    }
-  }
 
   async function shareRoom() {
     const url = `${window.location.origin}?invite=${room.code}`
@@ -918,11 +900,8 @@ function TopBar({
 
   return (
     <header className="top-bar">
-      <Link to="/players" className="room-mark" onClick={handleLogoClick}>
-        <span className="logo-egg-wrap">
-          <img src="/fp_logo.png" alt="" className={eggStatus === 'working' ? 'egg-spin' : ''} />
-          {eggStatus === 'done' && <span className="egg-done">✓</span>}
-        </span>
+      <Link to="/players" className="room-mark">
+        <img src="/fp_logo.png" alt="" />
         <div>
           <strong>{room.name}</strong>
           <span>{room.sportName ?? 'Team sport'} · {userName}</span>
@@ -2678,6 +2657,21 @@ function AccountView({
   const [saveState, setSaveState] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [showRoomEdit, setShowRoomEdit] = useState(false)
+  const [eggStatus, setEggStatus] = useState<'idle' | 'working' | 'done'>('idle')
+  const eggHoldRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function eggStart() {
+    if (!room.isAdmin || eggStatus !== 'idle') return
+    eggHoldRef.current = setTimeout(() => {
+      setEggStatus('working')
+      apiSend('/api/recalculate-achievements', getAccessTokenSilently, {})
+        .then(() => { setEggStatus('done'); setTimeout(() => setEggStatus('idle'), 2500) })
+        .catch(() => setEggStatus('idle'))
+    }, 1000)
+  }
+  function eggCancel() {
+    if (eggHoldRef.current) { clearTimeout(eggHoldRef.current); eggHoldRef.current = null }
+  }
 
   useEffect(() => {
     setRoomName(room.name)
@@ -2716,7 +2710,12 @@ function AccountView({
 
   return (
     <section className="screen">
-      <ScreenHeader eyebrow="Account" title="Clubhouse" />
+      <ScreenHeader
+        eyebrow="Account"
+        title={eggStatus === 'working' ? '…' : eggStatus === 'done' ? '✓' : 'Clubhouse'}
+        onLongPress={room.isAdmin ? eggStart : undefined}
+        onLongPressEnd={eggCancel}
+      />
 
       <div className="profile-panel">
         <img src={user?.picture ?? '/fp_logo.png'} alt="" />
@@ -3489,16 +3488,28 @@ function ScreenHeader({
   actionLabel,
   icon,
   onAction,
+  onLongPress,
+  onLongPressEnd,
 }: {
   eyebrow: string
   title: string
   actionLabel?: string
   icon?: React.ReactNode
   onAction?: () => void
+  onLongPress?: () => void
+  onLongPressEnd?: () => void
 }) {
   return (
     <div className="screen-header">
-      <div>
+      <div
+        onMouseDown={onLongPress}
+        onMouseUp={onLongPressEnd}
+        onMouseLeave={onLongPressEnd}
+        onTouchStart={onLongPress}
+        onTouchEnd={onLongPressEnd}
+        onTouchCancel={onLongPressEnd}
+        style={onLongPress ? { userSelect: 'none' } : undefined}
+      >
         <span>{eyebrow}</span>
         <h1>{title}</h1>
       </div>
