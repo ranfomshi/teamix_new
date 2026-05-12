@@ -870,8 +870,26 @@ function TopBar({
   const [copied, setCopied] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [switching, setSwitching] = useState<number | null>(null)
+  const [eggStatus, setEggStatus] = useState<'idle' | 'working' | 'done'>('idle')
+  const eggCountRef = useRef(0)
+  const eggTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { seasons, selectedSeasonId, setSelectedSeasonId } = useSeason()
   const otherRooms = memberships.filter((m) => m.roomId !== room.roomId)
+
+  function handleLogoClick() {
+    if (!room.isAdmin || eggStatus === 'working') return
+    eggCountRef.current += 1
+    if (eggTimerRef.current) clearTimeout(eggTimerRef.current)
+    eggTimerRef.current = setTimeout(() => { eggCountRef.current = 0 }, 2500)
+    if (eggCountRef.current >= 5) {
+      eggCountRef.current = 0
+      clearTimeout(eggTimerRef.current!)
+      setEggStatus('working')
+      apiSend('/api/recalculate-achievements', getAccessTokenSilently, {})
+        .then(() => { setEggStatus('done'); setTimeout(() => setEggStatus('idle'), 2000) })
+        .catch(() => setEggStatus('idle'))
+    }
+  }
 
   async function shareRoom() {
     const url = `${window.location.origin}?invite=${room.code}`
@@ -900,8 +918,11 @@ function TopBar({
 
   return (
     <header className="top-bar">
-      <Link to="/players" className="room-mark">
-        <img src="/fp_logo.png" alt="" />
+      <Link to="/players" className="room-mark" onClick={handleLogoClick}>
+        <span className="logo-egg-wrap">
+          <img src="/fp_logo.png" alt="" className={eggStatus === 'working' ? 'egg-spin' : ''} />
+          {eggStatus === 'done' && <span className="egg-done">✓</span>}
+        </span>
         <div>
           <strong>{room.name}</strong>
           <span>{room.sportName ?? 'Team sport'} · {userName}</span>
