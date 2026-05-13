@@ -2023,7 +2023,7 @@ function FixtureCard({
           {loading ? <p>Loading...</p> : null}
           {error ? <InlineError message={error} /> : null}
 
-          {!isPast && detail.availability && myAvailability === null ? (
+          {!isPast && detail.availability ? (
             <AvailabilityControl
               status={myAvailability}
               saving={savingAvailability}
