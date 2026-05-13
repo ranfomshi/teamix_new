@@ -355,25 +355,33 @@ button {
   z-index: 5;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   border-bottom: 1px solid var(--line);
   background: rgb(8 25 19 / 92%);
-  padding: max(12px, env(safe-area-inset-top)) 16px 12px;
+  padding: max(12px, env(safe-area-inset-top)) 16px 10px;
   backdrop-filter: blur(16px);
 }
 
-.top-bar-actions {
+.room-mark {
+  order: 1;
+  flex: 1 1 auto;
+}
+
+.top-bar-icons {
+  order: 2;
   display: flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .season-select {
+  order: 3;
   appearance: none;
   -webkit-appearance: none;
-  height: 36px;
+  height: 32px;
   padding: 0 24px 0 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -387,8 +395,21 @@ button {
   font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
-  max-width: 130px;
+  max-width: 150px;
+  flex: 0 1 150px;
   transition: background-color 0.15s;
+}
+
+@media (max-width: 440px) {
+  .season-select {
+    flex: 0 0 100%;
+    max-width: none;
+    height: 30px;
+    font-size: 0.75rem;
+  }
+  .room-mark-sub {
+    display: none;
+  }
 }
 
 .season-select:hover {
@@ -617,6 +638,7 @@ button {
   align-items: center;
   gap: 11px;
   text-decoration: none;
+  overflow: hidden;
 }
 
 .room-mark img {

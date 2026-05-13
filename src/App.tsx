@@ -904,23 +904,10 @@ function TopBar({
         <img src="/fp_logo.png" alt="" />
         <div>
           <strong>{room.name}</strong>
-          <span>{room.sportName ?? 'Team sport'} · {userName}</span>
+          <span className="room-mark-sub">{room.sportName ?? 'Team sport'} · {userName}</span>
         </div>
       </Link>
-      <div className="top-bar-actions">
-        {seasons.length > 0 && (
-          <select
-            className="season-select"
-            value={selectedSeasonId ?? ''}
-            onChange={(e) => setSelectedSeasonId(e.target.value ? Number(e.target.value) : null)}
-            aria-label="Season"
-          >
-            {seasons.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-            <option value="">All time</option>
-          </select>
-        )}
+      <div className="top-bar-icons">
         <NotificationBell getAccessTokenSilently={getAccessTokenSilently} playerId={room.playerId} initialNotifications={initialNotifications} onAvailabilityChanged={onAvailabilityChanged} refreshKey={notifRefreshKey} />
         <div className="room-code-wrap">
           <button type="button" className={`room-code${menuOpen ? ' active' : ''}`} onClick={() => setMenuOpen((o) => !o)}>
@@ -956,6 +943,19 @@ function TopBar({
           )}
         </div>
       </div>
+      {seasons.length > 0 && (
+        <select
+          className="season-select"
+          value={selectedSeasonId ?? ''}
+          onChange={(e) => setSelectedSeasonId(e.target.value ? Number(e.target.value) : null)}
+          aria-label="Season"
+        >
+          {seasons.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+          <option value="">All time</option>
+        </select>
+      )}
     </header>
   )
 }
