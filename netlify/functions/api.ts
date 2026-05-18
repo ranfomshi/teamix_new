@@ -1155,8 +1155,15 @@ export const handler: Handler = async (event) => {
                gr."teamA_score", gr."teamB_score", gr."createdAt" AS "resultCreatedAt",
                gr."teamA_chemistry", gr."teamB_chemistry",
                COALESCE(potm."playerOfTheMatch", '[]'::json) AS "playerOfTheMatch",
-               (SELECT COUNT(*)::int FROM public."Availabilities" a
-                WHERE a."gameweekId" = gw.id AND a."roomId" = gw."roomId" AND a.status = true) AS "availableCount"
+               (SELECT COUNT(DISTINCT a."playerId")::int
+                FROM public."Availabilities" a
+                JOIN public."RoomMemberships" rm
+                  ON rm."playerId" = a."playerId"
+                 AND rm."roomId" = a."roomId"
+                 AND rm."isMember" = true
+                WHERE a."gameweekId" = gw.id
+                  AND a."roomId" = gw."roomId"
+                  AND a.status = true) AS "availableCount"
         FROM public."Gameweeks" gw
         LEFT JOIN public."GameResults" gr
           ON gr."gameweekId" = gw.id AND gr."roomId" = gw."roomId"
@@ -1301,11 +1308,15 @@ export const handler: Handler = async (event) => {
       if (!target) return json({ error: 'Gameweek or player not found in this room' }, 404)
       if (body.status && target.maxPlayers && target.currentStatus !== true) {
         const [countRow] = await db.sql<{ count: string }>`
-          SELECT COUNT(*)::text AS count
-          FROM public."Availabilities"
-          WHERE "gameweekId" = ${body.gameweekId}
-            AND "roomId" = ${active.roomId}
-            AND status = true
+          SELECT COUNT(DISTINCT a."playerId")::text AS count
+          FROM public."Availabilities" a
+          JOIN public."RoomMemberships" rm
+            ON rm."playerId" = a."playerId"
+           AND rm."roomId" = a."roomId"
+           AND rm."isMember" = true
+          WHERE a."gameweekId" = ${body.gameweekId}
+            AND a."roomId" = ${active.roomId}
+            AND a.status = true
         `
         if (Number(countRow.count) >= target.maxPlayers) {
           return json({ error: `Max players (${target.maxPlayers}) exceeded.` }, 400)
@@ -1819,7 +1830,7 @@ async function rebuildDraftTeams(gameweekId: number, roomId: number) {
     rating: string | number | null
     favoritePositions: string[] | null
   }>`
-    SELECT p.id, p.rating, rm."favoritePositions"
+    SELECT DISTINCT ON (p.id) p.id, p.rating, rm."favoritePositions"
     FROM public."Availabilities" a
     JOIN public."Players" p ON p.id = a."playerId"
     JOIN public."RoomMemberships" rm
@@ -1829,7 +1840,7 @@ async function rebuildDraftTeams(gameweekId: number, roomId: number) {
     WHERE a."gameweekId" = ${gameweekId}
       AND a."roomId" = ${roomId}
       AND a.status = true
-    ORDER BY p.rating DESC NULLS LAST
+    ORDER BY p.id, a."updatedAt" DESC NULLS LAST, p.rating DESC NULLS LAST
   `
 
   const players = availablePlayers.map((player) => ({
