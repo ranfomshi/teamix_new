@@ -28,7 +28,7 @@ import {
   UsersRound,
   X,
 } from 'lucide-react'
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { BrowserRouter } from 'react-router-dom'
 import { identify, track, resetIdentity } from './analytics'
@@ -388,6 +388,14 @@ function AuthenticatedShell() {
 
   // Track tab navigation.
   const location = useLocation()
+
+  // Each tab is a separate screen. Reset the viewport before paint and give the
+  // route tree a navigation-specific key so a previously mounted screen cannot
+  // remain visible after the address bar has already changed (seen most often
+  // in installed mobile PWAs).
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [location.key])
   useEffect(() => {
     const tabMap: Record<string, string> = {
       '/players': 'Players',
@@ -438,7 +446,7 @@ function AuthenticatedShell() {
         <TopBar room={apiState.activeRoom} userName={user?.name ?? 'Player'} getAccessTokenSilently={getAccessTokenSilently} initialNotifications={initialNotifs ?? undefined} onAvailabilityChanged={() => setFixtureRefreshKey((k) => k + 1)} notifRefreshKey={notifRefreshKey} memberships={apiState.memberships} onRoomChanged={() => setReloadKey((key) => key + 1)} />
         <InstallBanner />
         <main className="app-content">
-          <Routes>
+          <Routes location={location} key={location.key}>
             <Route path="/players" element={<PlayersView room={apiState.activeRoom} />} />
             <Route path="/players/:id" element={<PlayerProfileView room={apiState.activeRoom} />} />
             <Route path="/fixtures" element={<FixturesView room={apiState.activeRoom} externalRefreshKey={fixtureRefreshKey} onResultRecorded={() => setNotifRefreshKey((k) => k + 1)} />} />
@@ -3450,7 +3458,7 @@ function DangerZone({
 function BottomNav() {
   return (
     <nav className="bottom-nav" aria-label="Primary">
-      <NavLink to="/players">
+      <NavLink to="/players" end>
         <UsersRound size={21} />
         <span>Players</span>
       </NavLink>
