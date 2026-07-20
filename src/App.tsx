@@ -29,7 +29,7 @@ import {
   X,
 } from 'lucide-react'
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { BrowserRouter } from 'react-router-dom'
 import { identify, track, resetIdentity } from './analytics'
 
@@ -3456,20 +3456,32 @@ function DangerZone({
 }
 
 function BottomNav() {
+  const { pathname } = useLocation()
+  const tabs = [
+    { to: '/players', label: 'Players', icon: <UsersRound size={21} /> },
+    { to: '/fixtures', label: 'Fixtures', icon: <CalendarDays size={21} /> },
+    { to: '/account', label: 'Account', icon: <CircleUserRound size={21} /> },
+  ]
+
   return (
     <nav className="bottom-nav" aria-label="Primary">
-      <NavLink to="/players" end>
-        <UsersRound size={21} />
-        <span>Players</span>
-      </NavLink>
-      <NavLink to="/fixtures">
-        <CalendarDays size={21} />
-        <span>Fixtures</span>
-      </NavLink>
-      <NavLink to="/account">
-        <CircleUserRound size={21} />
-        <span>Account</span>
-      </NavLink>
+      {tabs.map((tab) => {
+        const active = pathname === tab.to || (tab.to === '/players' && pathname.startsWith('/players/'))
+        return (
+          // Deliberately use document navigation for the primary tabs. This is
+          // more resilient in installed PWAs when the client router becomes
+          // suspended; the service worker still makes the reload effectively local.
+          <a
+            key={tab.to}
+            href={tab.to}
+            className={active ? 'active' : undefined}
+            aria-current={active ? 'page' : undefined}
+          >
+            {tab.icon}
+            <span>{tab.label}</span>
+          </a>
+        )
+      })}
     </nav>
   )
 }
