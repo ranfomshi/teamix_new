@@ -1291,6 +1291,12 @@ export const handler: Handler = async (event) => {
         return json({ error: 'Admin privileges required to update another player.' }, 403)
       }
 
+      const [recordedResult] = await db.sql`
+        SELECT id FROM public."GameResults"
+        WHERE "gameweekId" = ${body.gameweekId} AND "roomId" = ${active.roomId}
+      `
+      if (recordedResult) return json({ error: 'Availability is locked once a result is recorded.' }, 409)
+
       const [target] = await db.sql<{ gameweekId: number; maxPlayers: number | null; playerId: number; currentStatus: boolean | null }>`
         SELECT gw.id AS "gameweekId", gw."maxPlayers", rm."playerId", a.status AS "currentStatus"
         FROM public."Gameweeks" gw
@@ -1381,6 +1387,12 @@ export const handler: Handler = async (event) => {
       if (!body.gameweekId || !body.playerId) return json({ error: 'gameweekId and playerId are required' }, 400)
       if (!auth.isAdmin) return json({ error: 'Admin privileges required.' }, 403)
 
+      const [recordedResult] = await db.sql`
+        SELECT id FROM public."GameResults"
+        WHERE "gameweekId" = ${body.gameweekId} AND "roomId" = ${active.roomId}
+      `
+      if (recordedResult) return json({ error: 'Teams are locked once a result is recorded.' }, 409)
+
       const [gameweek] = await db.sql`
         SELECT id
         FROM public."Gameweeks"
@@ -1405,8 +1417,6 @@ export const handler: Handler = async (event) => {
             AND "playerId" = ${body.playerId}
             AND "roomId" = ${active.roomId}
         `
-        await recalculateIfResultExists(body.gameweekId, active.roomId)
-        snapshotChemistry(body.gameweekId, active.roomId).catch((e) => console.error('[chemistry snapshot]', e))
         return json({ success: true, playerId: body.playerId, team: null })
       }
 
@@ -1417,8 +1427,6 @@ export const handler: Handler = async (event) => {
         DO UPDATE SET team = EXCLUDED.team, "updatedAt" = NOW()
         RETURNING id, team, "playerId", "gameweekId", "roomId"
       `
-      await recalculateIfResultExists(body.gameweekId, active.roomId)
-      snapshotChemistry(body.gameweekId, active.roomId).catch((e) => console.error('[chemistry snapshot]', e))
       return json({ success: true, assignment })
     }
 
@@ -1445,6 +1453,11 @@ export const handler: Handler = async (event) => {
           AND "roomId" = ${active.roomId}
       `
       if (!gameweek) return json({ error: 'Gameweek not found' }, 404)
+
+      const [existingResult] = await db.sql`
+        SELECT id FROM public."GameResults"
+        WHERE "gameweekId" = ${body.gameweekId} AND "roomId" = ${active.roomId}
+      `
 
       const [counts] = await db.sql<{ team_a: string; team_b: string }>`
         SELECT
@@ -1479,11 +1492,21 @@ export const handler: Handler = async (event) => {
       } catch (e) {
         console.error('[teamix] updatePlayerRatings failed for gameweek', body.gameweekId, e)
       }
-      snapshotChemistry(body.gameweekId, active.roomId).catch((e) => console.error('[chemistry snapshot]', e))
+      // Chemistry belongs to the teams that actually played. Capture it once when
+      // the result is first recorded; score corrections must not move the snapshot.
+      if (!existingResult) await snapshotChemistry(body.gameweekId, active.roomId)
       awardAchievementsForGameweek(body.gameweekId, active.roomId, body.teamA_score, body.teamB_score).catch((e) =>
         console.error('[teamix] awardAchievementsForGameweek failed:', e)
       )
-      return json(result)
+      const [savedResult] = await db.sql`
+        SELECT id, "gameweekId", "teamA_score", "teamB_score",
+               "teamA_player_count", "teamB_player_count",
+               "teamA_chemistry" AS "teamAChemistry",
+               "teamB_chemistry" AS "teamBChemistry"
+        FROM public."GameResults"
+        WHERE "gameweekId" = ${body.gameweekId} AND "roomId" = ${active.roomId}
+      `
+      return json(savedResult ?? result)
     }
 
     if (method === 'POST' && route === '/recalculate-achievements') {
@@ -2174,31 +2197,6 @@ async function snapshotChemistry(gameweekId: number, roomId: number): Promise<vo
     WHERE "gameweekId" = ${gameweekId}
       AND "roomId" = ${roomId}
   `
-}
-
-async function recalculateIfResultExists(gameweekId: number, roomId: number) {
-  const [existingResult] = await db.sql<{
-    teamA_score: number; teamB_score: number; date: string
-  }>`
-    SELECT gr."teamA_score", gr."teamB_score", gw.date::text
-    FROM public."GameResults" gr
-    JOIN public."Gameweeks" gw ON gw.id = gr."gameweekId" AND gw."roomId" = gr."roomId"
-    WHERE gr."gameweekId" = ${gameweekId}
-      AND gr."roomId" = ${roomId}
-  `
-  if (!existingResult) return
-
-  const gameweekDate = existingResult.date.slice(0, 10)
-  await db.sql`
-    DELETE FROM public."Ratings"
-    WHERE "roomId" = ${roomId}
-      AND date::text = ${gameweekDate}
-      AND "raterId" IS NULL
-  `
-  await updatePlayerRatings(gameweekId, roomId)
-  await awardAchievementsForGameweek(gameweekId, roomId, existingResult.teamA_score, existingResult.teamB_score).catch((e) =>
-    console.error('[teamix] awardAchievementsForGameweek failed:', e)
-  )
 }
 
 async function updatePlayerRatings(gameweekId: number, roomId: number) {
