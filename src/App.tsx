@@ -1833,11 +1833,11 @@ function FixtureCard({
 
   useEffect(() => {
     // Use stored chemistry if at least one team has a non-null value (post-deploy fixtures)
-    if (fixture.gameResult &&
-        (fixture.gameResult.teamAChemistry != null || fixture.gameResult.teamBChemistry != null)) {
+    if (gameResult &&
+        (gameResult.teamAChemistry != null || gameResult.teamBChemistry != null)) {
       setChemistry({
-        teamA: fixture.gameResult.teamAChemistry ?? null,
-        teamB: fixture.gameResult.teamBChemistry ?? null,
+        teamA: gameResult.teamAChemistry ?? null,
+        teamB: gameResult.teamBChemistry ?? null,
       })
       return
     }
@@ -1849,7 +1849,7 @@ function FixtureCard({
     apiSend<TeamChemistry>('/api/team-chemistry', getAccessTokenSilently, { teamAIds, teamBIds })
       .then((data) => setChemistry(data ?? { teamA: null, teamB: null }))
       .catch((err) => { console.error('[chemistry]', err); setChemistry({ teamA: null, teamB: null }) })
-  }, [fixture.gameResult, detail.assignments, chemistry, getAccessTokenSilently])
+  }, [gameResult, detail.assignments, chemistry, getAccessTokenSilently])
 
   async function assignPlayer(playerId: number, team: 'A' | 'B' | 'bench') {
     setError(null)
@@ -2111,13 +2111,15 @@ function FixtureCard({
           {room.isAdmin ? (
             <div className="admin-panel">
               <div className="admin-actions">
-                <button
-                  type="button"
-                  className={`admin-action-btn${adminAction === 'manual' ? ' active' : ''}`}
-                  onClick={() => toggleAdmin('manual')}
-                >
-                  <Settings size={14} /> Manual teams
-                </button>
+                {!gameResult ? (
+                  <button
+                    type="button"
+                    className={`admin-action-btn${adminAction === 'manual' ? ' active' : ''}`}
+                    onClick={() => toggleAdmin('manual')}
+                  >
+                    <Settings size={14} /> Manual teams
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className={`admin-action-btn${adminAction === 'edit' ? ' active' : ''}`}
@@ -2425,8 +2427,9 @@ function AdminAvailabilityPanel({
   onSet: (status: boolean, playerId?: number) => void
 }) {
   const [search, setSearch] = useState('')
+  const normalizedSearch = search.trim().toLocaleLowerCase()
   const visibleRows = availability.filter((row) =>
-    row.Player.name.toLowerCase().includes(search.trim().toLowerCase()),
+    (row.Player.name ?? '').toLocaleLowerCase().includes(normalizedSearch),
   )
 
   return (
@@ -2434,34 +2437,38 @@ function AdminAvailabilityPanel({
       <strong>Set player availability</strong>
       <input
         className="availability-search"
+        type="search"
         value={search}
         onChange={(event) => setSearch(event.target.value)}
         placeholder="Search players"
+        aria-label="Search fixture players"
       />
-      {visibleRows.map((row) => (
-        <div className="availability-row" key={row.playerId}>
-          <span>{row.Player.name}</span>
-          <div>
-            <button
-              type="button"
-              className={row.status === true ? 'active available' : ''}
-              disabled={saving}
-              onClick={() => { onSet(true, row.playerId); setSearch('') }}
-            >
-              In
-            </button>
-            <button
-              type="button"
-              className={row.status === false ? 'active unavailable' : ''}
-              disabled={saving}
-              onClick={() => { onSet(false, row.playerId); setSearch('') }}
-            >
-              Out
-            </button>
+      <div className="availability-results">
+        {visibleRows.map((row) => (
+          <div className="availability-row" key={row.playerId}>
+            <span>{row.Player.name}</span>
+            <div>
+              <button
+                type="button"
+                className={row.status === true ? 'active available' : ''}
+                disabled={saving}
+                onClick={() => onSet(true, row.playerId)}
+              >
+                In
+              </button>
+              <button
+                type="button"
+                className={row.status === false ? 'active unavailable' : ''}
+                disabled={saving}
+                onClick={() => onSet(false, row.playerId)}
+              >
+                Out
+              </button>
+            </div>
           </div>
-        </div>
-      ))}
-      {visibleRows.length === 0 ? <p className="muted-note">No players match that search.</p> : null}
+        ))}
+        {visibleRows.length === 0 ? <p className="muted-note">No players match that search.</p> : null}
+      </div>
     </div>
   )
 }
